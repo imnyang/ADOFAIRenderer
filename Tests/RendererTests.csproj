@@ -1,0 +1,17 @@
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"/>
+ <PropertyGroup>
+  <OutputType>Exe</OutputType><AssemblyName>RendererTests</AssemblyName><TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+  <LangVersion>latest</LangVersion><OutputPath>bin\Release\</OutputPath>
+  <TargetFrameworkRootPath>$(MSBuildProjectDirectory)\..\packages\net48\build\</TargetFrameworkRootPath>
+  <FrameworkPathOverride Condition="Exists('..\packages\net48\build\.NETFramework\v4.8')">$(MSBuildProjectDirectory)\..\packages\net48\build\.NETFramework\v4.8</FrameworkPathOverride>
+ </PropertyGroup>
+ <ItemGroup>
+  <Reference Include="mscorlib"><Private>false</Private></Reference>
+  <Reference Include="System"><Private>false</Private></Reference><Reference Include="System.Core"><Private>false</Private></Reference>
+  <Compile Include="Program.cs"/>
+  <Compile Include="..\ADOFAIRenderer\Renderer\RenderClock.cs" Link="RenderClock.cs"/>
+  <Compile Include="..\ADOFAIRenderer\Renderer\FFmpegEncoder.cs" Link="FFmpegEncoder.cs"/>
+ </ItemGroup>
+ <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>
