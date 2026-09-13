@@ -27,13 +27,7 @@ ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 MP4 렌더링하는 Uni
 
 ## 설치
 
-Release 폴더의 파일 전체를 다음 위치에 복사합니다.
-
-```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
-```
-
-필수 파일은 `ADOFAIRenderer.dll`, `Info.json`, `ffmpeg.exe`입니다. 배포 시 `FFmpeg-LICENSE.txt`와 `FFmpeg-README.txt`도 함께 유지하세요. Unity Mod Manager에서 모드를 활성화하고 커스텀 레벨을 연 다음 `F6`을 누르면 됩니다.
+모드를 받은 뒤에 `A Dance of Fire and Ice/Mods/`에 이쁘게 배치해주세요.
 
 ## 설정
 
