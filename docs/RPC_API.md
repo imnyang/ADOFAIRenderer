@@ -1,6 +1,6 @@
 # ADOFAI Renderer RPC API Specification
 
-Version: `0.5.4`
+Version: `0.11.8`
 
 This document defines the localhost RPC API provided by ADOFAI Renderer. The server is disabled by default. Enable it by adding the following argument when launching ADOFAI:
 

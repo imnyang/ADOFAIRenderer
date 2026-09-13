@@ -94,6 +94,9 @@ namespace ADOFAIRenderer
         [Draw("Output folder", DrawType.Field)]
         public string OutputDirectory = "";
 
+        [Draw("FFmpeg executable", DrawType.Field)]
+        public string FfmpegExecutable = "";
+
         public void OnChange()
         {
             // Selecting a built-in preset also copies its values into the
@@ -156,11 +159,31 @@ namespace ADOFAIRenderer
 
         internal string ResolveOutputDirectory()
         {
-            var gameRoot = Directory.GetParent(UnityEngine.Application.dataPath).FullName;
+            var dataPath = Path.GetFullPath(UnityEngine.Application.dataPath);
+            var dataDirectory = new DirectoryInfo(dataPath);
+            // A macOS Unity player reports its Contents directory as
+            // Application.dataPath, while Windows/Linux report <game>_Data.
+            var gameRoot = (UnityEngine.Application.platform == UnityEngine.RuntimePlatform.OSXPlayer
+                || UnityEngine.Application.platform == UnityEngine.RuntimePlatform.OSXEditor)
+                && string.Equals(dataDirectory.Name, "Contents", StringComparison.OrdinalIgnoreCase)
+                ? dataDirectory.FullName
+                : dataDirectory.Parent.FullName;
             var configured = Environment.ExpandEnvironmentVariables((OutputDirectory ?? string.Empty).Trim());
             if (string.IsNullOrEmpty(configured)) return Path.Combine(gameRoot, "Renders");
             if (!Path.IsPathRooted(configured)) configured = Path.Combine(gameRoot, configured);
             return Path.GetFullPath(configured);
+        }
+
+        internal string ResolveFfmpegExecutable(string modDirectory)
+        {
+            var configured = Environment.ExpandEnvironmentVariables((FfmpegExecutable ?? string.Empty).Trim());
+            if (string.IsNullOrEmpty(configured)) return string.Empty;
+            if (Path.IsPathRooted(configured)) return Path.GetFullPath(configured);
+
+            // A relative path is resolved beside the mod. A bare command name
+            // is returned as-is so Process.Start can resolve it through PATH.
+            var local = Path.Combine(modDirectory, configured);
+            return File.Exists(local) ? Path.GetFullPath(local) : configured;
         }
 
         private static RenderProfile GetPresetProfile(RendererPreset preset)

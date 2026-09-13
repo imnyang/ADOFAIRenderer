@@ -29,6 +29,10 @@ ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 MP4 렌더링하는 Uni
 
 모드를 받은 뒤에 `A Dance of Fire and Ice/Mods/`에 이쁘게 배치해주세요.
 
+Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mod Manager 환경과 FFmpeg를 준비해주세요. Windows는 `ffmpeg.exe`, macOS/Linux는 실행 권한이 있는 `ffmpeg`를 사용하며, PATH에 등록하거나 `FFmpeg executable` 설정에 경로를 지정할 수 있습니다.
+
+빌드하면 호스트 OS와 관계없이 Release 폴더의 `FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/`, `FFmpeg/linux-x64/`에 네 플랫폼용 FFmpeg와 라이선스/README가 모두 들어갑니다. 현재 빌드한 플랫폼의 실행 파일은 호환성을 위해 Release 루트에도 복사됩니다. Apple Silicon은 `macos-arm64`를 자동으로 선택합니다. `-FetchFFmpeg`는 기존 빌드 명령과의 호환성을 위해 남아 있습니다.
+
 ## 설정
 
 | 설정 | 기본값 | 설명 |
@@ -43,6 +47,7 @@ ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 MP4 렌더링하는 Uni
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / Software |
 | Output folder | `Renders` | 게임 폴더 기준 상대 경로 또는 절대 경로 |
+| FFmpeg executable | 자동 | mod 폴더의 FFmpeg, PATH의 `ffmpeg`, 또는 직접 지정한 경로 |
 
 ### BGA Mode
 
@@ -92,10 +97,16 @@ GPU readback과 FFmpeg 인코딩을 파이프라인으로 겹치며, raw 프레�
 ## 개발 및 테스트
 
 ```powershell
-.\build.ps1 -FetchFFmpeg -Test
+.\build.ps1 -Test
 ```
 
-다른 게임 경로는 `-GameDir`, 특정 MSBuild는 `-MSBuildPath`로 지정합니다. 테스트는 프레임 수·순서, 인코딩 결과 일치, 실패·취소, AAC mux, A/V 길이 drift를 확인합니다.
+macOS/Linux에서는 로컬 ADOFAI 관리 DLL과 MSBuild를 준비한 뒤 다음처럼 빌드합니다.
+
+```bash
+GAME_DIR="$HOME/.steam/steam/steamapps/common/A Dance of Fire and Ice" bash ./build.sh
+```
+
+다른 게임 경로는 `-GameDir` 또는 `GAME_DIR`, 특정 MSBuild는 `-MSBuildPath` 또는 `MSBUILD_PATH`로 지정합니다. 테스트는 프레임 수·순서, 인코딩 결과 일치, 실패·취소, AAC mux, A/V 길이 drift를 확인합니다.
 
 ## 라이선스
 

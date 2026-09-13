@@ -87,7 +87,7 @@ namespace ADOFAIRenderer.Renderer
         private RpcRenderJob activeRpcJob;
         private double nextProgressUpdateAt;
 
-        private void Awake() { Instance = this; FFmpegPath = Path.Combine(Main.Entry.Path, "ffmpeg.exe"); }
+        private void Awake() { Instance = this; }
         public void StartRender()
         {
             if (Busy || !Main.Enabled) return;
@@ -188,7 +188,8 @@ namespace ADOFAIRenderer.Renderer
             ValidateLoadedLevel();
             if (GCS.d_oldConductor || GCS.d_webglConductor)
                 throw new InvalidOperationException("The installed conductor must use its standard DSP timing mode.");
-            var directory = (Main.Settings ?? new RendererSettings()).ResolveOutputDirectory();
+            var settings = Main.Settings ?? new RendererSettings();
+            var directory = settings.ResolveOutputDirectory();
             Directory.CreateDirectory(directory);
             var name = SanitizeName(ADOBase.controller.levelName);
             OutputPath = Path.Combine(directory, name + "_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6) + ".mp4");
@@ -197,6 +198,7 @@ namespace ADOFAIRenderer.Renderer
             muxPath = Path.ChangeExtension(OutputPath, ".mux.mp4");
             saved = new SavedState();
             MaximizeRenderPerformance();
+            FFmpegPath = ResolveFfmpegExecutable(settings);
             encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
                 profile.Fps, profile.BitrateMbps, profile.FfmpegPreset, !captureAudioForRun,
                 profile.FfmpegCodec);
@@ -567,6 +569,58 @@ namespace ADOFAIRenderer.Renderer
             try { System.Diagnostics.Process.GetCurrentProcess().PriorityClass = processPriorityBefore; }
             catch (Exception ex) { Main.Entry.Logger.Log("Could not restore renderer process priority: " + ex.Message); }
             finally { processPriorityChanged = false; }
+        }
+
+        private static string ResolveFfmpegExecutable(RendererSettings settings)
+        {
+            var configured = settings.ResolveFfmpegExecutable(Main.Entry.Path);
+            if (!string.IsNullOrEmpty(configured)) return configured;
+
+            var windows = Application.platform == RuntimePlatform.WindowsPlayer
+                || Application.platform == RuntimePlatform.WindowsEditor;
+            var mac = Application.platform == RuntimePlatform.OSXPlayer
+                || Application.platform == RuntimePlatform.OSXEditor;
+            var platform = windows ? "windows-x64" : mac ? (IsAppleSiliconProcess() ? "macos-arm64" : "macos-x64") : "linux-x64";
+            var names = windows ? new[] { "ffmpeg.exe", "ffmpeg" } : new[] { "ffmpeg", "ffmpeg.exe" };
+            var candidates = new[]
+            {
+                Path.Combine(Main.Entry.Path, "FFmpeg", platform, names[0]),
+                Path.Combine(Main.Entry.Path, "FFmpeg", platform, names[1]),
+                Path.Combine(Main.Entry.Path, names[0]),
+                Path.Combine(Main.Entry.Path, names[1])
+            };
+            foreach (var local in candidates)
+            {
+                if (File.Exists(local)) return local;
+            }
+
+            // Let the operating system resolve a system-installed FFmpeg from
+            // PATH. This is the normal setup on macOS and Linux.
+            return names[0];
+        }
+
+        private static bool IsAppleSiliconProcess()
+        {
+            try
+            {
+                using (var process = new System.Diagnostics.Process {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo {
+                        FileName = "/usr/bin/uname",
+                        Arguments = "-m",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true
+                    }
+                })
+                {
+                    process.Start();
+                    var architecture = process.StandardOutput.ReadToEnd().Trim();
+                    process.WaitForExit();
+                    return string.Equals(architecture, "arm64", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(architecture, "aarch64", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch { return false; }
         }
 
         internal static string FormatDuration(double seconds)

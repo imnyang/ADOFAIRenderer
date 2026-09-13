@@ -28,7 +28,8 @@ This license applies only to the original ADOFAI Renderer code and files in
 this project. A Dance of Fire and Ice (ADOFAI), Unity, and other third-party
 components remain the property of their respective copyright holders.
 
-The distributed `ffmpeg.exe` is a separate FFmpeg build and is not covered by
-the MIT License above. It is distributed under GPLv3. The accompanying
-`FFmpeg-LICENSE.txt` and `FFmpeg-README.txt` files contain its license and
+The distributed FFmpeg executables are separate FFmpeg builds and are not
+covered by the MIT License above. They are distributed under GPLv3. The
+accompanying `FFmpeg-LICENSE.txt` and `FFmpeg-README.txt` files, plus the
+platform-specific files under `FFmpeg/`, contain their license and
 build/source information.

@@ -17,13 +17,17 @@ ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل ا�
 
 ## التثبيت
 
-انسخ محتويات مجلد Release كاملة إلى:
+بعد تنزيل التعديل، ضعه بشكل مرتب داخل مجلد `Mods` الخاص باللعبة:
 
 ```text
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-ضع `ADOFAIRenderer.dll` و`Info.json` و`ffmpeg.exe` في المجلد نفسه، ووزّع أيضاً ملفات ترخيص FFmpeg وملف README الخاص به. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
+ضع `ADOFAIRenderer.dll` و`Info.json` وملف FFmpeg التنفيذي في المجلد نفسه، ووزّع أيضاً ملفات ترخيص FFmpeg وملف README الخاص به. يستخدم Windows الملف `ffmpeg.exe`، بينما يستخدم macOS/Linux الملف التنفيذي `ffmpeg` مع صلاحية التشغيل، أو المسار المحدد في إعداد `FFmpeg executable`. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
+
+يدعم التشغيل Windows وmacOS وLinux عندما تتوفر نسخة متوافقة من ADOFAI وUnity Mod Manager.
+
+يتضمن أي بناء عادي، بصرف النظر عن نظام المضيف الذي تم عليه البناء، ملفات FFmpeg للمنصات الأربع داخل `FFmpeg/windows-x64/` و`FFmpeg/macos-x64/` و`FFmpeg/macos-arm64/` و`FFmpeg/linux-x64/` مع ملفات الترخيص وREADME. يتم اختيار `macos-arm64` تلقائياً على Apple Silicon. يبقى الخيار `-FetchFFmpeg` متاحاً للتوافق مع أوامر البناء القديمة.
 
 ## الإعدادات
 
@@ -72,7 +76,7 @@ console.log(job);
 ## البناء والاختبار
 
 ```powershell
-.\build.ps1 -FetchFFmpeg -Test
+.\build.ps1 -Test
 ```
 
 استخدم `-GameDir` لمسار لعبة غير افتراضي و`-MSBuildPath` لتحديد MSBuild.

@@ -51,7 +51,9 @@ namespace ADOFAIRenderer.Renderer
         private FFmpegEncoder(string executable, string output, int width, int height, int fps, int bitrateMbps,
             string preset, bool legacyCrf, bool fastStart, string codec)
         {
-            if (!File.Exists(executable)) throw new FileNotFoundException("FFmpeg executable not found", executable);
+            if (string.IsNullOrWhiteSpace(executable)) throw new FileNotFoundException("FFmpeg executable was not configured.");
+            if (LooksLikeFilePath(executable) && !File.Exists(executable))
+                throw new FileNotFoundException("FFmpeg executable not found", executable);
             if (width <= 0 || height <= 0 || (width & 1) != 0 || (height & 1) != 0 || fps <= 0 || bitrateMbps <= 0)
                 throw new ArgumentOutOfRangeException();
             if (string.IsNullOrEmpty(preset)) preset = "fast";
@@ -147,6 +149,13 @@ namespace ADOFAIRenderer.Renderer
             if (string.Equals(preset, "ultrafast", StringComparison.OrdinalIgnoreCase)) return "p1";
             if (string.Equals(preset, "fast", StringComparison.OrdinalIgnoreCase)) return "p6";
             return "p4";
+        }
+
+        private static bool LooksLikeFilePath(string executable)
+        {
+            return Path.IsPathRooted(executable)
+                || executable.IndexOf(Path.DirectorySeparatorChar) >= 0
+                || executable.IndexOf(Path.AltDirectorySeparatorChar) >= 0;
         }
         public void Submit(Frame frame)
         {

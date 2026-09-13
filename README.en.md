@@ -15,13 +15,17 @@ ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to 
 
 ## Installation
 
-Copy the complete Release folder to:
+After downloading the mod, place it neatly in the game's `Mods` directory:
 
 ```text
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-Keep `ADOFAIRenderer.dll`, `Info.json`, and `ffmpeg.exe` together. The FFmpeg license/readme files should also be distributed with the executable. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
+Keep `ADOFAIRenderer.dll`, `Info.json`, and the FFmpeg executable together. The FFmpeg license/readme files should also be distributed with the executable. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
+
+Runtime support is intended for Windows, macOS, and Linux when the platform has a compatible ADOFAI and Unity Mod Manager environment. Windows uses `ffmpeg.exe`; macOS/Linux use an executable `ffmpeg` available on PATH or selected in the `FFmpeg executable` setting.
+
+Every normal build packages all four platforms—`FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/`, and `FFmpeg/linux-x64/`—with their license/readme files, regardless of the build host. Apple Silicon automatically selects `macos-arm64`; the executable for the current build host is also copied to the Release root for compatibility. `-FetchFFmpeg` remains accepted for compatibility with older build commands.
 
 ## Settings
 
@@ -37,6 +41,7 @@ Keep `ADOFAIRenderer.dll`, `Info.json`, and `ffmpeg.exe` together. The FFmpeg li
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / Software |
 | Output folder | `Renders` | Relative to the game folder or absolute |
+| FFmpeg executable | Automatic | Bundled executable, PATH lookup, or an explicit path |
 
 ### BGA Mode
 
@@ -77,10 +82,16 @@ Normal gameplay FPS and final render FPS are different measurements because ever
 ## Build and test
 
 ```powershell
-.\build.ps1 -FetchFFmpeg -Test
+.\build.ps1 -Test
 ```
 
-Use `-GameDir` for a non-default ADOFAI installation and `-MSBuildPath` for a specific MSBuild executable.
+On macOS/Linux, use the portable build entry point after installing the local ADOFAI managed assemblies and MSBuild:
+
+```bash
+GAME_DIR="$HOME/.steam/steam/steamapps/common/A Dance of Fire and Ice" bash ./build.sh
+```
+
+Use `-GameDir`/`GAME_DIR` for a non-default installation and `-MSBuildPath`/`MSBUILD_PATH` for a specific MSBuild executable.
 
 ## License
 

@@ -15,13 +15,17 @@ ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义�
 
 ## 安装
 
-将 Release 文件夹中的全部文件复制到：
+下载模组后，请将它整齐地放入游戏的 `Mods` 目录：
 
 ```text
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-请将 `ADOFAIRenderer.dll`、`Info.json` 和 `ffmpeg.exe` 放在同一目录，并同时分发 FFmpeg 的许可证和 README 文件。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
+请将 `ADOFAIRenderer.dll`、`Info.json` 和 FFmpeg 可执行文件放在同一目录，并同时分发 FFmpeg 的许可证和 README 文件。Windows 使用 `ffmpeg.exe`，macOS/Linux 使用有执行权限的 `ffmpeg`，也可以在 `FFmpeg executable` 设置中指定路径。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
+
+只要平台提供兼容的 ADOFAI 和 Unity Mod Manager 环境，Windows、macOS 和 Linux 都可以运行。
+
+普通构建无论在哪个系统上执行，都会在 Release 文件夹的 `FFmpeg/windows-x64/`、`FFmpeg/macos-x64/`、`FFmpeg/macos-arm64/` 和 `FFmpeg/linux-x64/` 中包含四个平台的 FFmpeg 以及许可证/README 文件。Apple Silicon 会自动选择 `macos-arm64`。`-FetchFFmpeg` 仍可用于兼容旧的构建命令。
 
 ## 设置
 
@@ -71,7 +75,7 @@ console.log(job);
 ## 构建与测试
 
 ```powershell
-.\build.ps1 -FetchFFmpeg -Test
+.\build.ps1 -Test
 ```
 
 非默认游戏目录使用 `-GameDir`，指定 MSBuild 使用 `-MSBuildPath`。
