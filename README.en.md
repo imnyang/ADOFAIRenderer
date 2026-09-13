@@ -27,6 +27,10 @@ Runtime support is intended for Windows, macOS, and Linux when the platform has 
 
 Every normal build packages all four platforms—`FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/`, and `FFmpeg/linux-x64/`—with their license/readme files, regardless of the build host. Apple Silicon automatically selects `macos-arm64`; the executable for the current build host is also copied to the Release root for compatibility. `-FetchFFmpeg` remains accepted for compatibility with older build commands.
 
+## Automatic updates
+
+On startup, the mod checks GitHub's latest stable release. Drafts and pre-releases are excluded through `releases/latest`; the downloaded ZIP's version and SHA-256 are verified. When no render is active, the mod hot-reloads through Unity Mod Manager without restarting the game; if hot reload is unavailable, it falls back to applying the update after the game exits.
+
 ## Settings
 
 | Setting | Default | Description |

@@ -35,6 +35,7 @@ namespace ADOFAIRenderer
                 SceneManager.sceneLoaded += OnSceneLoaded;
                 Enabled = true;
                 StartRpcServer();
+                UpdateManager.Start(entry);
                 entry.OnToggle = (mod, enabled) =>
                 {
                     if (!enabled) RendererController.Instance?.StopAndClean();
@@ -48,6 +49,7 @@ namespace ADOFAIRenderer
                     if (Settings == null) return;
                     UnityModManager.UI.DrawFields(ref Settings, mod, DrawFieldMask.Any, Settings.OnChange);
                 };
+                entry.OnUpdate = (mod, deltaTime) => UpdateManager.PumpMainThread();
                 entry.OnSaveGUI = mod => Settings?.Save(mod);
                 entry.OnUnload = mod =>
                 {

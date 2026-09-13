@@ -14,6 +14,7 @@
  </PropertyGroup>
  <ItemGroup>
   <Reference Include="System"/><Reference Include="System.Core"/>
+  <Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/>
   <Reference Include="$(ManagedDir)/netstandard.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/UnityEngine*.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/Unity.Collections.dll"><Private>false</Private></Reference>

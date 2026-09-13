@@ -33,6 +33,10 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 
 빌드하면 호스트 OS와 관계없이 Release 폴더의 `FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/`, `FFmpeg/linux-x64/`에 네 플랫폼용 FFmpeg와 라이선스/README가 모두 들어갑니다. 현재 빌드한 플랫폼의 실행 파일은 호환성을 위해 Release 루트에도 복사됩니다. Apple Silicon은 `macos-arm64`를 자동으로 선택합니다. `-FetchFFmpeg`는 기존 빌드 명령과의 호환성을 위해 남아 있습니다.
 
+## 자동 업데이트
+
+실행할 때 GitHub의 최신 정식 릴리즈를 확인합니다. `releases/latest` 기준으로 draft와 Pre-release는 자동 업데이트 대상에서 제외하며, 다운로드한 ZIP의 버전과 SHA-256을 확인합니다. 렌더 중이 아닐 때 Unity Mod Manager를 hot-reload하여 게임을 재시작하지 않고 적용하고, hot-reload가 지원되지 않으면 게임 종료 후 적용합니다.
+
 ## 설정
 
 | 설정 | 기본값 | 설명 |

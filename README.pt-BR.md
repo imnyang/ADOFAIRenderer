@@ -27,6 +27,10 @@ O runtime suporta Windows, macOS e Linux quando houver uma instalação compatí
 
 Qualquer compilação normal inclui, independentemente do sistema usado para compilar, os quatro executáveis do FFmpeg em `FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/` e `FFmpeg/linux-x64/`, junto com os arquivos de licença e README. O Apple Silicon seleciona `macos-arm64` automaticamente. `-FetchFFmpeg` continua aceito para compatibilidade com comandos de compilação antigos.
 
+## Atualizações automáticas
+
+Ao iniciar, o mod verifica o lançamento estável mais recente no GitHub. O endpoint `releases/latest` exclui drafts e pre-releases, e a versão e o SHA-256 do ZIP são verificados. Quando não há uma renderização ativa, o update é aplicado via hot-reload do Unity Mod Manager sem reiniciar o jogo; se o hot-reload não estiver disponível, ele será aplicado após o fechamento do jogo.
+
 ## Configurações
 
 | Configuração | Padrão | Descrição |

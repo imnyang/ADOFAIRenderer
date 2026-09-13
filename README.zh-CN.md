@@ -27,6 +27,10 @@ A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 
 普通构建无论在哪个系统上执行，都会在 Release 文件夹的 `FFmpeg/windows-x64/`、`FFmpeg/macos-x64/`、`FFmpeg/macos-arm64/` 和 `FFmpeg/linux-x64/` 中包含四个平台的 FFmpeg 以及许可证/README 文件。Apple Silicon 会自动选择 `macos-arm64`。`-FetchFFmpeg` 仍可用于兼容旧的构建命令。
 
+## 自动更新
+
+启动时会检查 GitHub 最新的正式版本。通过 `releases/latest` 排除 Draft 和 Pre-release，并验证下载 ZIP 的版本与 SHA-256。没有进行渲染时会通过 Unity Mod Manager hot-reload 在不重启游戏的情况下应用更新；如果无法 hot-reload，则会在游戏退出后应用。
+
 ## 设置
 
 | 设置 | 默认值 | 说明 |

@@ -27,6 +27,10 @@ A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 
 通常のビルドでは、ビルドしたOSに関係なく `FFmpeg/windows-x64/`、`FFmpeg/macos-x64/`、`FFmpeg/macos-arm64/`、`FFmpeg/linux-x64/` の4プラットフォーム分とライセンス/READMEがReleaseフォルダに含まれます。Apple Siliconでは `macos-arm64` が自動選択されます。`-FetchFFmpeg` は以前のビルドコマンドとの互換性のために使用できます。
 
+## 自動アップデート
+
+起動時にGitHubの最新の正式リリースを確認します。`releases/latest` を使用するためDraftとプレリリースは対象外です。ダウンロードしたZIPのバージョンとSHA-256を検証し、レンダー中でなければUnity Mod Managerのhot-reloadでゲームを再起動せずに適用します。hot-reloadが利用できない場合はゲーム終了後に適用します。
+
 ## 設定
 
 | 設定 | 初期値 | 説明 |
