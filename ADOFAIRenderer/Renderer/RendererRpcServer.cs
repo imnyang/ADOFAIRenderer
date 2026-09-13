@@ -24,11 +24,12 @@ namespace ADOFAIRenderer.Renderer
         public int? Fps;
         public int? BitrateMbps;
         public float? EndDelaySeconds;
+        public bool? BgaMode;
 
         public bool HasValues
         {
             get { return Preset.HasValue || Width.HasValue || Height.HasValue || Fps.HasValue
-                || BitrateMbps.HasValue || EndDelaySeconds.HasValue; }
+                || BitrateMbps.HasValue || EndDelaySeconds.HasValue || BgaMode.HasValue; }
         }
 
         public object Snapshot()
@@ -40,7 +41,8 @@ namespace ADOFAIRenderer.Renderer
                 height = Height,
                 fps = Fps,
                 bitrateMbps = BitrateMbps,
-                endDelaySeconds = EndDelaySeconds
+                endDelaySeconds = EndDelaySeconds,
+                bgaMode = BgaMode
             };
         }
     }
@@ -379,7 +381,8 @@ namespace ADOFAIRenderer.Renderer
                 Height = payload.Height,
                 Fps = fps,
                 BitrateMbps = bitrate,
-                EndDelaySeconds = payload.EndDelaySeconds
+                EndDelaySeconds = payload.EndDelaySeconds,
+                BgaMode = payload.BgaMode
             };
             return options.HasValues ? options : null;
         }
@@ -453,6 +456,7 @@ namespace ADOFAIRenderer.Renderer
             [JsonProperty("bitrateMbps")] public int? BitrateMbps { get; set; }
             [JsonProperty("bitrate")] public int? Bitrate { get; set; }
             [JsonProperty("endDelaySeconds")] public float? EndDelaySeconds { get; set; }
+            [JsonProperty("bgaMode")] public bool? BgaMode { get; set; }
             [JsonProperty("captureAudio")] public bool? CaptureAudio { get; set; }
             [JsonProperty("audio")] public bool? Audio { get; set; }
         }

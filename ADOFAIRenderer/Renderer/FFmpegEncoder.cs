@@ -24,44 +24,62 @@ namespace ADOFAIRenderer.Renderer
         private volatile Exception failure;
         private bool disposed;
         public long WrittenFrames => Interlocked.Read(ref written);
+        public double WriteSeconds => Interlocked.Read(ref writeTicks) / (double)Stopwatch.Frequency;
+        public int QueueDepth => work.Count;
+        public int PeakQueueDepth => Volatile.Read(ref peakQueueDepth);
+        public int BufferCapacity => work.BoundedCapacity;
         private long written;
+        private long writeTicks;
+        private int peakQueueDepth;
 
         // Kept for the standalone encoder tests and for callers that use the
         // original API. RendererController uses the configurable overload.
         public FFmpegEncoder(string executable, string output)
-            : this(executable, output, 1920, 1080, 60, 18, "veryfast", true, true) { }
+            : this(executable, output, 1920, 1080, 60, 18, "veryfast", true, true, "libx264") { }
 
         public FFmpegEncoder(string executable, string output, int width, int height, int fps, int bitrateMbps, string preset)
-            : this(executable, output, width, height, fps, bitrateMbps, preset, false, true) { }
+            : this(executable, output, width, height, fps, bitrateMbps, preset, false, true, "libx264") { }
 
         public FFmpegEncoder(string executable, string output, int width, int height, int fps, int bitrateMbps,
             string preset, bool fastStart)
-            : this(executable, output, width, height, fps, bitrateMbps, preset, false, fastStart) { }
+            : this(executable, output, width, height, fps, bitrateMbps, preset, false, fastStart, "libx264") { }
+
+        public FFmpegEncoder(string executable, string output, int width, int height, int fps, int bitrateMbps,
+            string preset, bool fastStart, string codec)
+            : this(executable, output, width, height, fps, bitrateMbps, preset, false, fastStart, codec) { }
 
         private FFmpegEncoder(string executable, string output, int width, int height, int fps, int bitrateMbps,
-            string preset, bool legacyCrf, bool fastStart)
+            string preset, bool legacyCrf, bool fastStart, string codec)
         {
             if (!File.Exists(executable)) throw new FileNotFoundException("FFmpeg executable not found", executable);
             if (width <= 0 || height <= 0 || (width & 1) != 0 || (height & 1) != 0 || fps <= 0 || bitrateMbps <= 0)
                 throw new ArgumentOutOfRangeException();
             if (string.IsNullOrEmpty(preset)) preset = "fast";
+            if (string.IsNullOrEmpty(codec)) codec = "libx264";
+            bool isNvenc = string.Equals(codec, "h264_nvenc", StringComparison.OrdinalIgnoreCase);
             var frameByteCount = checked(width * height * 4);
-            // Readback and encoding share this pool. Four buffers leave almost
-            // no overlap once two or three GPU requests are in flight, so use
-            // the available 128 MiB pipeline budget without letting 4K buffers
-            // grow memory usage unexpectedly.
-            var bufferCount = (int)Math.Max(4L, Math.Min(8L, (128L * 1024 * 1024) / frameByteCount));
+            // Readback and encoding share this pool. Keep enough frames in flight
+            // to hide GPU readback and x264 latency instead of making the Unity
+            // thread wait after every few frames. Rendering is an offline job, so
+            // throughput is more important than minimizing the temporary working set.
+            var bufferCount = (int)Math.Max(4L, Math.Min(16L, (256L * 1024 * 1024) / frameByteCount));
             free = new BlockingCollection<Frame>(bufferCount);
             work = new BlockingCollection<Frame>(bufferCount);
             var bufferSizeMbps = Math.Max(1, bitrateMbps * 2);
-            var rateControl = legacyCrf
+            var rateControl = legacyCrf && !isNvenc
                 ? "-crf 18"
                 : "-b:v " + bitrateMbps + "M -maxrate " + bitrateMbps + "M -bufsize " + bufferSizeMbps + "M";
+            var encoderPreset = isNvenc ? NvencPreset(preset) : preset;
+            var encoderOptions = isNvenc
+                ? "-c:v h264_nvenc -preset " + encoderPreset + " -tune hq -rc cbr " + rateControl
+                : "-c:v libx264 -threads 0 -preset " + encoderPreset
+                    + (string.Equals(preset, "ultrafast", StringComparison.OrdinalIgnoreCase)
+                        ? " -tune zerolatency " : " ") + rateControl;
             process = new Process { StartInfo = new ProcessStartInfo {
                 FileName = executable,
                 Arguments = "-hide_banner -loglevel warning -nostdin -n -f rawvideo -pixel_format rgba -video_size "
-                    + width + "x" + height + " -framerate " + fps + " -i pipe:0 -an -vf vflip -c:v libx264 -preset "
-                    + preset + " " + rateControl + " -pix_fmt yuv420p"
+                    + width + "x" + height + " -framerate " + fps + " -i pipe:0 -an -vf vflip "
+                    + encoderOptions + " -pix_fmt yuv420p"
                     + (fastStart ? " -movflags +faststart" : "") + " \"" + output + "\"",
                 UseShellExecute = false, CreateNoWindow = true,
                 RedirectStandardInput = true, RedirectStandardError = true
@@ -76,6 +94,8 @@ namespace ADOFAIRenderer.Renderer
             try
             {
                 process.Start();
+                try { process.PriorityClass = ProcessPriorityClass.High; }
+                catch { /* Restricted environments may not allow priority changes. */ }
                 process.BeginErrorReadLine();
                 for (int i = 0; i < bufferCount; i++) free.Add(new Frame(frameByteCount));
                 writer = new Thread(WriteFrames) { IsBackground = true, Name = "ADOFAI FFmpeg" };
@@ -92,7 +112,9 @@ namespace ADOFAIRenderer.Renderer
                 foreach (var frame in work.GetConsumingEnumerable())
                 {
                     if (frame.Index != WrittenFrames) throw new InvalidDataException("Frame ordering violation.");
+                    var writeStart = Stopwatch.GetTimestamp();
                     stream.Write(frame.Bytes, 0, frame.Bytes.Length);
+                    Interlocked.Add(ref writeTicks, Stopwatch.GetTimestamp() - writeStart);
                     Interlocked.Increment(ref written);
                     free.Add(frame);
                 }
@@ -119,7 +141,25 @@ namespace ADOFAIRenderer.Renderer
                 if (timeout.Elapsed.TotalSeconds > 30) throw new TimeoutException("FFmpeg stopped consuming frames.");
             }
         }
-        public void Submit(Frame frame) { Check(); work.Add(frame); }
+
+        private static string NvencPreset(string preset)
+        {
+            if (string.Equals(preset, "ultrafast", StringComparison.OrdinalIgnoreCase)) return "p1";
+            if (string.Equals(preset, "fast", StringComparison.OrdinalIgnoreCase)) return "p6";
+            return "p4";
+        }
+        public void Submit(Frame frame)
+        {
+            Check();
+            work.Add(frame);
+            var depth = work.Count;
+            while (true)
+            {
+                var previous = Volatile.Read(ref peakQueueDepth);
+                if (depth <= previous || Interlocked.CompareExchange(ref peakQueueDepth, depth, previous) == previous)
+                    break;
+            }
+        }
         public void Finish(long expectedFrames)
         {
             work.CompleteAdding();

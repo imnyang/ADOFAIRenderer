@@ -6,57 +6,116 @@ namespace ADOFAIRenderer.UI
     internal static class RendererWindow
     {
         private static bool initialized;
-        private static GUIStyle panel, title, message, detail;
-        private static Texture2D background;
+        private static GUIStyle title, message, detail;
+        private static Texture2D backdrop, border, background, progressTrack, progressFill;
+
+        // Renderer UI palette supplied by the user.
+        private static readonly Color DarkBackground = Hsl(315f, 21f, 8f);
+        private static readonly Color Foreground = Hsl(0f, 0f, 98f);
+        private static readonly Color DarkMuted = Hsl(296f, 18f, 15f);
+        private static readonly Color MutedForeground = Hsl(240f, 5f, 68f);
+        private static readonly Color DarkBorder = Hsl(296f, 18f, 15f);
+        private static readonly Color Ring = Hsl(240f, 4.9f, 83.9f);
+
+        internal static void DrawBackdrop()
+        {
+            EnsureStyles();
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height),
+                backdrop, ScaleMode.StretchToFill, false);
+        }
 
         internal static void DrawToast(RendererController renderer)
         {
             EnsureStyles();
-            float width = Mathf.Min(620f, Screen.width - 40f);
+            float width = Mathf.Min(680f, Screen.width - 40f);
+            float height = renderer.TotalFrames > 0 ? 190f : 132f;
             float left = (Screen.width - width) * 0.5f;
-            GUILayout.BeginArea(new Rect(left, 26f, width, 86f), panel);
-            GUILayout.BeginVertical();
-            GUILayout.Label("ADOFAI RENDERER", title);
-            GUILayout.Label(renderer.ToastText ?? renderer.Message ?? string.Empty, message);
+            float top = Mathf.Max(20f, (Screen.height - height) * 0.5f);
+            var rect = new Rect(left, top, width, height);
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                GUI.DrawTexture(new Rect(rect.x - 1f, rect.y - 1f, rect.width + 2f, rect.height + 2f),
+                    border, ScaleMode.StretchToFill, false);
+                GUI.DrawTexture(rect, background, ScaleMode.StretchToFill, false);
+            }
+
+            const float padding = 22f;
+            var content = new Rect(rect.x + padding, rect.y + 16f, rect.width - padding * 2f, rect.height - 32f);
+            GUI.Label(new Rect(content.x, content.y, content.width, 20f), "ADOFAI RENDERER", title);
+            GUI.Label(new Rect(content.x, content.y + 24f, content.width, 32f),
+                renderer.ToastText ?? renderer.Message ?? string.Empty, message);
             if (renderer.TotalFrames > 0)
             {
                 float progress = Mathf.Clamp01((float)renderer.CapturedFrames / renderer.TotalFrames);
-                GUILayout.Label(string.Format("{0:F1}%   {1} / {2} frames   {3:F1} fps",
-                    progress * 100f, renderer.CapturedFrames, renderer.TotalFrames, renderer.GenerationFps), detail);
+                var progressRect = new Rect(content.x, content.y + 62f, content.width, 9f);
+                if (Event.current.type == EventType.Repaint)
+                {
+                    GUI.DrawTexture(progressRect, progressTrack, ScaleMode.StretchToFill, false);
+                    if (progress > 0f)
+                        GUI.DrawTexture(new Rect(progressRect.x, progressRect.y,
+                            progressRect.width * progress, progressRect.height), progressFill,
+                            ScaleMode.StretchToFill, false);
+                }
+
+                GUI.Label(new Rect(content.x, content.y + 76f, content.width, 18f), renderer.ProgressText, detail);
+                GUI.Label(new Rect(content.x, content.y + 94f, content.width, 18f), renderer.EtaText, detail);
+                GUI.Label(new Rect(content.x, content.y + 112f, content.width, 18f), renderer.SpeedText, detail);
             }
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
         }
 
         private static void EnsureStyles()
         {
             if (initialized) return;
             initialized = true;
-            background = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            background.SetPixel(0, 0, new Color(0.035f, 0.045f, 0.07f, 0.96f));
-            background.Apply();
-            panel = new GUIStyle(GUI.skin.box)
-            {
-                padding = new RectOffset(18, 18, 12, 12),
-                normal = { background = background }
-            };
+            backdrop = Solid(DarkBackground);
+            border = Solid(DarkBorder);
+            background = Solid(DarkMuted);
+            progressTrack = Solid(DarkBackground);
+            progressFill = Solid(Ring);
             title = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 15,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.82f, 0.93f, 1f) }
+                normal = { textColor = Ring }
             };
             message = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = Color.white }
+                normal = { textColor = Foreground }
             };
             detail = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 11,
-                normal = { textColor = new Color(0.55f, 0.80f, 0.90f) }
+                normal = { textColor = MutedForeground }
             };
+        }
+
+        private static Texture2D Solid(Color color)
+        {
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false) { name = "ADOFAI Renderer UI" };
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            return texture;
+        }
+
+        private static Color Hsl(float hue, float saturationPercent, float lightnessPercent)
+        {
+            float h = Mathf.Repeat(hue, 360f) / 360f;
+            float s = saturationPercent / 100f;
+            float l = lightnessPercent / 100f;
+            float chroma = (1f - Mathf.Abs(2f * l - 1f)) * s;
+            float x = chroma * (1f - Mathf.Abs((h * 6f) % 2f - 1f));
+            float r = 0f, g = 0f, b = 0f;
+            if (h < 1f / 6f) { r = chroma; g = x; }
+            else if (h < 2f / 6f) { r = x; g = chroma; }
+            else if (h < 3f / 6f) { g = chroma; b = x; }
+            else if (h < 4f / 6f) { g = x; b = chroma; }
+            else if (h < 5f / 6f) { r = x; b = chroma; }
+            else { r = chroma; b = x; }
+            float match = l - chroma / 2f;
+            return new Color(r + match, g + match, b + match, 1f);
         }
     }
 }

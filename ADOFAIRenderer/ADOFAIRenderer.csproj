@@ -30,8 +30,9 @@
    <HintPath Condition="Exists('$(ModManagerDir)\0Harmony.dll')">$(ModManagerDir)\0Harmony.dll</HintPath>
    <HintPath Condition="!Exists('$(ModManagerDir)\0Harmony.dll')">..\packages\0Harmony.dll</HintPath><Private>false</Private>
   </Reference>
-  <Compile Include="**\*.cs" Exclude="obj\**;bin\**"/>
-  <Content Include="Info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+ <Compile Include="**\*.cs" Exclude="obj\**;bin\**"/>
+ <Content Include="Info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+ <Content Include="LICENSE.md"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
  </ItemGroup>
  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

@@ -17,16 +17,44 @@ namespace ADOFAIRenderer.Renderer
         public static RendererController Instance { get; private set; }
         public static bool ControlsTime => Instance != null && Instance.saved != null &&
             (Instance.State == RenderState.Preparing || Instance.State == RenderState.Rendering);
+        internal static bool BgaModeActive => Instance != null && Instance.bgaModeForRun
+            && (Instance.State == RenderState.Preparing || Instance.State == RenderState.Rendering
+                || Instance.State == RenderState.Finishing);
         public RenderState State { get; private set; }
         public RenderClock Clock { get; private set; } = new RenderClock();
         public string Message { get; private set; } = "Open a Custom Level, then Render.";
         public string ToastText { get; private set; } = "Open a Custom Level, then press F6 to render.";
+        public string ProgressText { get; private set; } = "";
+        public string EtaText { get; private set; } = "";
+        public string SpeedText { get; private set; } = "";
         public string OutputPath { get; private set; } = "";
         public string FFmpegPath = "";
         private readonly System.Diagnostics.Stopwatch renderTimer = new System.Diagnostics.Stopwatch();
         public double GenerationFps => renderTimer.Elapsed.TotalSeconds > 0 ? CapturedFrames / renderTimer.Elapsed.TotalSeconds : 0;
         public double ElapsedSeconds => renderTimer.Elapsed.TotalSeconds;
+        public double EstimatedRemainingSeconds
+        {
+            get
+            {
+                if (TotalFrames <= 0 || CapturedFrames <= 0 || GenerationFps <= 0) return double.NaN;
+                return Math.Max(0.0, (TotalFrames - CapturedFrames) / GenerationFps);
+            }
+        }
+        public double RenderSpeedMultiplier => Clock != null && Clock.Fps > 0
+            ? GenerationFps / Clock.Fps : 0;
         public double CaptureWaitSeconds { get; private set; }
+        public double GameFrameSeconds => gameFrameTicks / (double)System.Diagnostics.Stopwatch.Frequency;
+        public double ReadbackWaitSeconds => capture != null ? capture.ReadbackWaitSeconds : 0;
+        public double ReadbackCopySeconds => capture != null ? capture.ReadbackCopySeconds : 0;
+        public double ReadbackLatencySeconds => capture != null ? capture.ReadbackLatencySeconds : 0;
+        public int PendingReadbacks => capture != null ? capture.PendingReadbacks : 0;
+        public int PeakPendingReadbacks => capture != null ? capture.PeakPendingReadbacks : 0;
+        public double EncoderWriteSeconds => encoder != null ? encoder.WriteSeconds : 0;
+        public int EncoderQueueDepth => encoder != null ? encoder.QueueDepth : 0;
+        public int PeakEncoderQueueDepth => encoder != null ? encoder.PeakQueueDepth : 0;
+        public long WrittenFrames => encoder != null ? encoder.WrittenFrames : 0;
+        public double AudioCaptureSeconds => audio != null ? audio.CaptureSeconds : 0;
+        public double FinalizationSeconds => finalizationTicks / (double)System.Diagnostics.Stopwatch.Frequency;
         public long TotalFrames { get; private set; }
         public long CapturedFrames { get; private set; }
         public bool Busy => State == RenderState.Preparing || State == RenderState.Rendering || State == RenderState.Finishing
@@ -41,11 +69,19 @@ namespace ADOFAIRenderer.Renderer
         private string partialPath;
         private string audioPath, muxPath;
         private GameAudioCapture audio;
+        private BgaRenderState bga;
+        private bool bgaModeForRun;
+        private double scheduledMusicStartDsp;
+        private double scheduledMusicLengthSeconds;
         private float toastUntil;
         private bool captureAudioForRun;
         private RenderProfile profile;
         private float escapeHeldAt = -1f;
         private bool forceCancelTriggered;
+        private bool processPriorityChanged;
+        private System.Diagnostics.ProcessPriorityClass processPriorityBefore;
+        private long gameFrameTicks;
+        private long finalizationTicks;
         private readonly ConcurrentQueue<object> rpcCommands = new ConcurrentQueue<object>();
         private Coroutine rpcLoadRoutine;
         private RpcRenderJob activeRpcJob;
@@ -63,16 +99,20 @@ namespace ADOFAIRenderer.Renderer
             renderTimer.Reset();
             nextProgressUpdateAt = 0;
             CaptureWaitSeconds = 0;
+            ProgressText = EtaText = SpeedText = "";
+            gameFrameTicks = 0;
+            finalizationTicks = 0;
             ClearQueuedInput();
             escapeHeldAt = -1f;
             forceCancelTriggered = false;
             var settings = Main.Settings ?? new RendererSettings();
             var options = activeRpcJob != null ? activeRpcJob.Options : null;
+            bgaModeForRun = options?.BgaMode ?? settings.BgaMode;
             profile = settings.ResolveProfile(options?.Preset, options?.Width, options?.Height,
                 options?.Fps, options?.BitrateMbps, options?.EndDelaySeconds);
             Clock = new RenderClock(profile.Fps);
-            Message = string.Format("Preparing {0}x{1} @ {2} fps ({3} Mbps)...",
-                profile.Width, profile.Height, profile.Fps, profile.BitrateMbps);
+            Message = string.Format("Preparing {0}x{1} @ {2} fps ({3} Mbps, {4})...",
+                profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec);
             captureAudioForRun = activeRpcJob != null
                 ? activeRpcJob.CaptureAudio
                 : Main.Settings == null || Main.Settings.CaptureAudio;
@@ -112,8 +152,15 @@ namespace ADOFAIRenderer.Renderer
         private void ShowProgressToast()
         {
             if (TotalFrames <= 0) return;
-            ToastText = string.Format("Rendering  {0:F1}%  |  {1} / {2} frames  |  {3:F1} fps",
-                100.0 * CapturedFrames / TotalFrames, CapturedFrames, TotalFrames, GenerationFps);
+            var progress = 100.0 * CapturedFrames / TotalFrames;
+            ProgressText = string.Format("{0:F1}%   {1} / {2} frames   {3:F1} fps",
+                progress, CapturedFrames, TotalFrames, GenerationFps);
+            EtaText = string.Format("ETA {0}   •   finishes around {1}",
+                FormatDuration(EstimatedRemainingSeconds), FormatFinishTime(EstimatedRemainingSeconds));
+            SpeedText = string.Format("{0:F2}x realtime   •   elapsed {1}",
+                RenderSpeedMultiplier, FormatDuration(ElapsedSeconds));
+            ToastText = string.Format("Rendering  {0:F1}%  |  {1} / {2} frames  |  {3:F1} fps  |  ETA {4}",
+                progress, CapturedFrames, TotalFrames, GenerationFps, FormatDuration(EstimatedRemainingSeconds));
             toastUntil = Time.unscaledTime + 1.0f;
         }
         private IEnumerator GuardedRun()
@@ -141,16 +188,18 @@ namespace ADOFAIRenderer.Renderer
             ValidateLoadedLevel();
             if (GCS.d_oldConductor || GCS.d_webglConductor)
                 throw new InvalidOperationException("The installed conductor must use its standard DSP timing mode.");
-            var directory = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Renders");
+            var directory = (Main.Settings ?? new RendererSettings()).ResolveOutputDirectory();
             Directory.CreateDirectory(directory);
             var name = SanitizeName(ADOBase.controller.levelName);
             OutputPath = Path.Combine(directory, name + "_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6) + ".mp4");
             partialPath = Path.ChangeExtension(OutputPath, ".partial.mp4");
             audioPath = Path.ChangeExtension(OutputPath, ".partial.wav");
             muxPath = Path.ChangeExtension(OutputPath, ".mux.mp4");
-            encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
-                profile.Fps, profile.BitrateMbps, profile.FfmpegPreset, !captureAudioForRun);
             saved = new SavedState();
+            MaximizeRenderPerformance();
+            encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
+                profile.Fps, profile.BitrateMbps, profile.FfmpegPreset, !captureAudioForRun,
+                profile.FfmpegCodec);
             if (editor != null)
             {
                 Main.Entry.Logger.Log("Preparing editor render: playMode=" + editor.playMode
@@ -206,9 +255,14 @@ namespace ADOFAIRenderer.Renderer
             Time.timeScale = 1;
             ADOBase.conductor.dspTime = Clock.DspTime;
             ADOBase.conductor.songposition_minusi = Clock.SongPosition(ADOBase.conductor.dspTimeSong,
-                ADOBase.conductor.song.pitch, ADOBase.conductor.addoffset, scrConductor.calibration_i);
+                ADOBase.conductor.song.pitch, 0.0, scrConductor.calibration_i);
             capture = new FrameCapture(encoder, profile.Width, profile.Height);
             PrepareRenderCamera();
+            if (bgaModeForRun)
+            {
+                bga = BgaRenderState.Capture();
+                Main.Entry.Logger.Log("BGA mode enabled: hidden renderers=" + bga.HiddenRendererCount);
+            }
             State = RenderState.Rendering;
             renderTimer.Start();
             ApplyFramePacing();
@@ -218,11 +272,13 @@ namespace ADOFAIRenderer.Renderer
             // Every output frame follows one complete game Update/LateUpdate/render.
             while (true)
             {
+                var gameFrameStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 yield return null;
                 yield return EndOfFrame;
                 if (level == null || (editor != null ? editor.customLevel : ADOBase.customLevel) != level || ADOBase.controller == null || ADOBase.conductor == null)
                     throw new InvalidOperationException("The level was unloaded during rendering.");
                 encoder.Check();
+                gameFrameTicks += System.Diagnostics.Stopwatch.GetTimestamp() - gameFrameStart;
                 capture.Capture(Clock.FrameIndex);
                 CaptureWaitSeconds = capture.BackpressureSeconds;
                 if (captureAudioForRun)
@@ -256,30 +312,45 @@ namespace ADOFAIRenderer.Renderer
             renderTimer.Stop();
             Message = "Finalizing MP4...";
             ShowToast(Message, 8f, false);
-            capture.Drain(true);
-            // No Unity yields during finalization; gameplay must not progress further.
-            encoder.Finish(CapturedFrames);
-            if (audio != null)
+            var finalizationStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
             {
-                audio.Complete(CapturedFrames, Clock.Fps);
-                audio.Dispose();
-                FFmpegEncoder.MuxAudio(FFmpegPath, partialPath, audioPath, muxPath);
-                File.Move(muxPath, OutputPath);
-                File.Delete(partialPath); File.Delete(audioPath);
+                capture.Drain(true);
+                // No Unity yields during finalization; gameplay must not progress further.
+                encoder.Finish(CapturedFrames);
+                if (audio != null)
+                {
+                    audio.Complete(CapturedFrames, Clock.Fps);
+                    audio.Dispose();
+                    FFmpegEncoder.MuxAudio(FFmpegPath, partialPath, audioPath, muxPath);
+                    File.Move(muxPath, OutputPath);
+                    File.Delete(partialPath); File.Delete(audioPath);
+                }
+                else File.Move(partialPath, OutputPath);
             }
-            else File.Move(partialPath, OutputPath);
+            finally { finalizationTicks += System.Diagnostics.Stopwatch.GetTimestamp() - finalizationStart; }
             State = RenderState.Completed;
             Message = "Completed: " + CapturedFrames + " frames."
                 + (audio != null && audio.Peak < 0.000001f ? " Audio mix was silent; check game sound settings." : "");
             ShowToast(Message, 8f);
-            Main.Entry.Logger.Log(string.Format("Completed: {0} frames in {1:F2}s, {2:F1} frames/s ({3:F2}x target). Video={4}x{5}@{6}fps {7}Mbps {8}. Audio={9}. Capture/encoder wait={10:F2}s. Output={11}",
+            Main.Entry.Logger.Log(string.Format("Completed: {0} frames in {1:F2}s, {2:F1} frames/s ({3:F2}x target). Video={4}x{5}@{6}fps {7}Mbps {8}/{9}. Audio={10}. Capture/encoder wait={11:F2}s. Metrics: game={12:F2}s, readbackWait={13:F2}s, readbackLatency={14:F2}s, readbackCopy={15:F2}s, pendingPeak={16}, encoderWrite={17:F2}s, encoderQueuePeak={18}, written={19}, audioCapture={20:F2}s, finalization={21:F2}s. Output={22}",
                 CapturedFrames, ElapsedSeconds, GenerationFps, GenerationFps / Clock.Fps,
-                profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegPreset,
-                audio != null, CaptureWaitSeconds, OutputPath));
+                profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec, profile.FfmpegPreset,
+                audio != null, CaptureWaitSeconds,
+                GameFrameSeconds, ReadbackWaitSeconds, ReadbackLatencySeconds, ReadbackCopySeconds,
+                PeakPendingReadbacks, EncoderWriteSeconds, PeakEncoderQueueDepth, WrittenFrames,
+                AudioCaptureSeconds, FinalizationSeconds, OutputPath));
         }
         internal void ScheduleAudio(scrConductor conductor)
         {
+            double pitch = conductor.song.pitch;
+            double countdown = conductor.separateCountdownTime
+                ? conductor.crotchetAtStart * conductor.adjustedCountdownTicks / pitch : 0.0;
+            double songStart = conductor.dspTimeSong + countdown;
+            scheduledMusicStartDsp = songStart;
+            scheduledMusicLengthSeconds = LongestClipLength(conductor, pitch);
             if (!captureAudioForRun) return;
+
             audio = new GameAudioCapture();
             audio.Begin(audioPath);
             // AudioRenderer controls the DSP timeline. Anchor once, then keep
@@ -287,15 +358,19 @@ namespace ADOFAIRenderer.Renderer
             Clock.AnchorDsp(AudioSettings.dspTime);
             conductor.dspTime = Clock.DspTime;
             conductor.dspTimeSong = conductor.dspTime + 1.0;
-            double songStart = conductor.dspTimeSong + (conductor.separateCountdownTime
-                ? conductor.crotchetAtStart * conductor.adjustedCountdownTicks / conductor.song.pitch : 0.0);
+            countdown = conductor.separateCountdownTime
+                ? conductor.crotchetAtStart * conductor.adjustedCountdownTicks / pitch : 0.0;
+            songStart = conductor.dspTimeSong + countdown;
+            scheduledMusicStartDsp = songStart;
+            scheduledMusicLengthSeconds = LongestClipLength(conductor, pitch);
             foreach (var source in new[] { conductor.song, conductor.song2, conductor.song3 })
             {
                 if (source == null || source.clip == null) continue;
                 source.Stop(); source.time = 0; source.PlayScheduled(songStart);
             }
             conductor.PlayHitTimes();
-            Main.Entry.Logger.Log("Game audio started: " + audio.SampleRate + " Hz, " + audio.Channels + " channels.");
+            if (audio != null)
+                Main.Entry.Logger.Log("Game audio started: " + audio.SampleRate + " Hz, " + audio.Channels + " channels.");
         }
         internal void MusicScheduled()
         {
@@ -307,12 +382,26 @@ namespace ADOFAIRenderer.Renderer
             double last = floors[floors.Count - 1].entryTime;
             double endDelay = profile != null ? profile.EndDelaySeconds : 2.0;
             if (double.IsNaN(endDelay) || double.IsInfinity(endDelay) || endDelay < 0) endDelay = 2.0;
-            double end = conductor.dspTimeSong - Clock.DspOrigin + scrConductor.calibration_i
-                + (last + conductor.addoffset) / pitch + endDelay;
+            double chartEnd = conductor.dspTimeSong - Clock.DspOrigin
+                + scrConductor.calibration_i + last / pitch;
+            double musicEnd = scheduledMusicStartDsp - Clock.DspOrigin + scheduledMusicLengthSeconds;
+            double end = Math.Max(chartEnd, musicEnd) + endDelay;
             if (double.IsNaN(end) || double.IsInfinity(end) || end <= 0)
                 throw new InvalidOperationException("Invalid final tile time.");
             TotalFrames = checked((long)Math.Ceiling(end * Clock.Fps) + 1);
-            Main.Entry.Logger.Log(string.Format("Render end delay: {0:F2}s, total frames: {1}", endDelay, TotalFrames));
+            Main.Entry.Logger.Log(string.Format("Render end: chart={0:F2}s, music={1:F2}s, delay={2:F2}s, total frames={3}",
+                chartEnd, musicEnd, endDelay, TotalFrames));
+        }
+
+        private static double LongestClipLength(scrConductor conductor, double pitch)
+        {
+            double longest = 0.0;
+            foreach (var source in new[] { conductor.song, conductor.song2, conductor.song3 })
+            {
+                if (source == null || source.clip == null) continue;
+                longest = Math.Max(longest, source.clip.length / pitch);
+            }
+            return longest;
         }
         private void PrepareRenderCamera()
         {
@@ -397,7 +486,7 @@ namespace ADOFAIRenderer.Renderer
         private void LateUpdate()
         {
             if (State != RenderState.Rendering) return;
-            try { ApplyFramePacing(); capture.Bind(); }
+            try { bga?.Apply(); ApplyFramePacing(); capture.Bind(); }
             catch (Exception ex) { Fail(ex); StopAndClean(); }
         }
         private void Update()
@@ -449,12 +538,51 @@ namespace ADOFAIRenderer.Renderer
             // Rendering temporarily owns the gameplay cameras and editor
             // overlays. Cover the presentation surface so a camera or canvas
             // target change can never flash through to the player window.
-            if (Busy && Event.current.type == EventType.Repaint)
-                GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height),
-                    Texture2D.blackTexture, ScaleMode.StretchToFill, false);
+            if (Busy && State != RenderState.Rendering && Event.current.type == EventType.Repaint)
+                ADOFAIRenderer.UI.RendererWindow.DrawBackdrop();
             if (!ToastVisible) return;
             ADOFAIRenderer.UI.RendererWindow.DrawToast(this);
         }
+        private void MaximizeRenderPerformance()
+        {
+            try
+            {
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                processPriorityBefore = process.PriorityClass;
+                if (processPriorityBefore != System.Diagnostics.ProcessPriorityClass.High)
+                {
+                    process.PriorityClass = System.Diagnostics.ProcessPriorityClass.High;
+                    processPriorityChanged = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Main.Entry.Logger.Log("Could not raise renderer process priority: " + ex.Message);
+            }
+        }
+
+        private void RestoreRenderPerformance()
+        {
+            if (!processPriorityChanged) return;
+            try { System.Diagnostics.Process.GetCurrentProcess().PriorityClass = processPriorityBefore; }
+            catch (Exception ex) { Main.Entry.Logger.Log("Could not restore renderer process priority: " + ex.Message); }
+            finally { processPriorityChanged = false; }
+        }
+
+        internal static string FormatDuration(double seconds)
+        {
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0) return "calculating...";
+            var span = TimeSpan.FromSeconds(Math.Max(0.0, seconds));
+            if (span.TotalHours >= 1) return span.ToString(@"h\:mm\:ss");
+            return span.ToString(@"mm\:ss");
+        }
+
+        internal static string FormatFinishTime(double seconds)
+        {
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0) return "--:--:--";
+            return DateTime.Now.AddSeconds(seconds).ToString("HH:mm:ss");
+        }
+
         private void ProcessRpcCommands()
         {
             while (rpcCommands.TryDequeue(out var command))
@@ -679,6 +807,8 @@ namespace ADOFAIRenderer.Renderer
             TryCleanup(() => capture?.Dispose()); capture = null;
             TryCleanup(() => encoder?.Dispose()); encoder = null;
             TryCleanup(() => audio?.Dispose()); audio = null;
+            TryCleanup(() => bga?.Dispose()); bga = null;
+            TryCleanup(RestoreRenderPerformance);
             if (restore != null)
             {
                 // Reset playback with the user's autoplay setting, otherwise Play

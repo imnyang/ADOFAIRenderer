@@ -13,10 +13,13 @@ namespace ADOFAIRenderer.Renderer
         private float[] managed;
         private byte[] bytes;
         private bool started;
+        private long captureTicks;
         public int SampleRate { get; private set; }
         public int Channels { get; private set; }
         public long SampleFrames { get; private set; }
         public float Peak { get; private set; }
+        public double CaptureSeconds => System.Threading.Interlocked.Read(ref captureTicks)
+            / (double)System.Diagnostics.Stopwatch.Frequency;
 
         public void Begin(string path)
         {
@@ -44,23 +47,32 @@ namespace ADOFAIRenderer.Renderer
 
         public void CaptureFrame()
         {
-            if (!started) throw new InvalidOperationException("Audio was not initialized before capturing frame zero.");
-            int count = AudioRenderer.GetSampleCountForCaptureFrame();
-            if (count <= 0) throw new InvalidOperationException("Unity AudioRenderer returned no samples. Game audio capture is unavailable; disable Audio to render video only.");
-            int length = checked(count * Channels);
-            if (!samples.IsCreated || samples.Length != length)
+            var captureStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
             {
-                if (samples.IsCreated) samples.Dispose();
-                samples = new NativeArray<float>(length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                managed = new float[length]; bytes = new byte[length * sizeof(float)];
+                if (!started) throw new InvalidOperationException("Audio was not initialized before capturing frame zero.");
+                int count = AudioRenderer.GetSampleCountForCaptureFrame();
+                if (count <= 0) throw new InvalidOperationException("Unity AudioRenderer returned no samples. Game audio capture is unavailable; disable Audio to render video only.");
+                int length = checked(count * Channels);
+                if (!samples.IsCreated || samples.Length != length)
+                {
+                    if (samples.IsCreated) samples.Dispose();
+                    samples = new NativeArray<float>(length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    managed = new float[length]; bytes = new byte[length * sizeof(float)];
+                }
+                if (!AudioRenderer.Render(samples)) throw new InvalidOperationException("Unity AudioRenderer failed to render the audio frame.");
+                samples.CopyTo(managed);
+                for (int i = 0; i < managed.Length; i++) Peak = Math.Max(Peak, Math.Abs(managed[i]));
+                Buffer.BlockCopy(managed, 0, bytes, 0, bytes.Length);
+                stream.Write(bytes, 0, bytes.Length);
+                SampleFrames += count;
+                if (stream.Length > uint.MaxValue - 36L) throw new IOException("WAV exceeded its 4 GB size limit.");
             }
-            if (!AudioRenderer.Render(samples)) throw new InvalidOperationException("Unity AudioRenderer failed to render the audio frame.");
-            samples.CopyTo(managed);
-            for (int i = 0; i < managed.Length; i++) Peak = Math.Max(Peak, Math.Abs(managed[i]));
-            Buffer.BlockCopy(managed, 0, bytes, 0, bytes.Length);
-            stream.Write(bytes, 0, bytes.Length);
-            SampleFrames += count;
-            if (stream.Length > uint.MaxValue - 36L) throw new IOException("WAV exceeded its 4 GB size limit.");
+            finally
+            {
+                System.Threading.Interlocked.Add(ref captureTicks,
+                    System.Diagnostics.Stopwatch.GetTimestamp() - captureStart);
+            }
         }
 
         public void Complete(long videoFrames, int fps)

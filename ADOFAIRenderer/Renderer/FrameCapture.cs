@@ -29,9 +29,25 @@ namespace ADOFAIRenderer.Renderer
             public AsyncGPUReadbackRequest Request;
             public bool Ready;
             public Exception Error;
+            public long SubmittedAt;
+            public long CompletedAt;
+            public long CopyTicks;
+
+            public void Reset(FFmpegEncoder.Frame frame, long submittedAt)
+            {
+                Frame = frame;
+                Request = default(AsyncGPUReadbackRequest);
+                Ready = false;
+                Error = null;
+                SubmittedAt = submittedAt;
+                CompletedAt = 0;
+                CopyTicks = 0;
+            }
+
             public void Complete(AsyncGPUReadbackRequest request)
             {
                 if (Ready) return;
+                var copyStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 try
                 {
                     if (request.hasError) throw new InvalidOperationException("GPU readback failed at frame " + Frame.Index);
@@ -40,12 +56,18 @@ namespace ADOFAIRenderer.Renderer
                     data.CopyTo(Frame.Bytes);
                 }
                 catch (Exception ex) { Error = ex; }
-                finally { Ready = true; }
+                finally
+                {
+                    CopyTicks = System.Diagnostics.Stopwatch.GetTimestamp() - copyStart;
+                    CompletedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                    Ready = true;
+                }
             }
         }
         private readonly List<CameraState> cameras = new List<CameraState>();
         private readonly List<CanvasState> canvases = new List<CanvasState>();
         private readonly Queue<Pending> pending = new Queue<Pending>();
+        private readonly Stack<Pending> reusable = new Stack<Pending>();
         private readonly FFmpegEncoder encoder;
         private readonly RenderTexture target;
         private readonly int width;
@@ -59,7 +81,16 @@ namespace ADOFAIRenderer.Renderer
         private readonly int mainMask;
         private Texture2D fallback;
         private bool disposed;
+        private long readbackWaitTicks;
+        private long readbackCopyTicks;
+        private long readbackLatencyTicks;
+        private int peakPending;
         public double BackpressureSeconds { get; private set; }
+        public double ReadbackWaitSeconds => readbackWaitTicks / (double)System.Diagnostics.Stopwatch.Frequency;
+        public double ReadbackCopySeconds => readbackCopyTicks / (double)System.Diagnostics.Stopwatch.Frequency;
+        public double ReadbackLatencySeconds => readbackLatencyTicks / (double)System.Diagnostics.Stopwatch.Frequency;
+        public int PendingReadbacks => pending.Count;
+        public int PeakPendingReadbacks => peakPending;
 
         public FrameCapture(FFmpegEncoder encoder, int width, int height)
         {
@@ -166,10 +197,12 @@ namespace ADOFAIRenderer.Renderer
                 encoder.Submit(buffer);
                 return;
             }
-            var frame = new Pending { Frame = buffer };
+            var frame = reusable.Count > 0 ? reusable.Pop() : new Pending();
+            frame.Reset(buffer, System.Diagnostics.Stopwatch.GetTimestamp());
             // Copy in the callback; Unity request data is only valid for one frame.
             frame.Request = AsyncGPUReadback.Request(target, 0, TextureFormat.RGBA32, frame.Complete);
             pending.Enqueue(frame);
+            if (pending.Count > peakPending) peakPending = pending.Count;
         }
         public void Drain(bool wait)
         {
@@ -178,13 +211,18 @@ namespace ADOFAIRenderer.Renderer
                 var frame = pending.Peek();
                 if (!frame.Ready && wait)
                 {
+                    var waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
                     frame.Request.WaitForCompletion();
                     frame.Complete(frame.Request);
+                    readbackWaitTicks += System.Diagnostics.Stopwatch.GetTimestamp() - waitStart;
                 }
                 if (!frame.Ready) break;
                 if (frame.Error != null) throw new InvalidOperationException("Capture failed.", frame.Error);
+                readbackCopyTicks += frame.CopyTicks;
+                readbackLatencyTicks += frame.CompletedAt - frame.SubmittedAt;
                 encoder.Submit(frame.Frame);
                 pending.Dequeue();
+                reusable.Push(frame);
             }
         }
         public void Dispose()

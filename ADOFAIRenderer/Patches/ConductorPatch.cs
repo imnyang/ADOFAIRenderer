@@ -70,6 +70,15 @@ namespace ADOFAIRenderer.Patches
         }
     }
 
+    [HarmonyPatch(typeof(scrConductor), "PlayHitTimes")]
+    internal static class BgaHitSoundPatch
+    {
+        // BGA renders keep the actual song audio but omit the gameplay hit
+        // sound schedule. This also prevents hold/midspin hit sounds created
+        // by the same scheduling pass from entering the captured mix.
+        static bool Prefix() => !RendererController.BgaModeActive;
+    }
+
     [HarmonyPatch]
     internal static class ConductorResetPatch
     {
@@ -94,9 +103,11 @@ namespace ADOFAIRenderer.Patches
         {
             if (!RendererController.ControlsTime || __instance.song == null) return;
             // Avoid the float conversion in the stock Update, retaining double
-            // precision throughout long renders. minusv still applies game calibration.
+            // precision throughout long renders. Input offset is a gameplay
+            // compensation and must not shift the rendered audio/video sync.
+            // minusv still applies game calibration.
             value = RendererController.Instance.Clock.SongPosition(__instance.dspTimeSong,
-                __instance.song.pitch, __instance.addoffset, scrConductor.calibration_i);
+                __instance.song.pitch, 0.0, scrConductor.calibration_i);
         }
     }
 }

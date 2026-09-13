@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using UnityModManagerNet;
 
 namespace ADOFAIRenderer
@@ -12,9 +13,24 @@ namespace ADOFAIRenderer
         UHD4K
     }
 
+    public enum EncoderSpeed
+    {
+        Maximum,
+        Balanced,
+        Quality
+    }
+
+    public enum VideoEncoder
+    {
+        Auto,
+        NvidiaNvenc,
+        Software
+    }
+
     internal sealed class RenderProfile
     {
-        public RenderProfile(int width, int height, int fps, int bitrateMbps, string ffmpegPreset, float endDelaySeconds = 2f)
+        public RenderProfile(int width, int height, int fps, int bitrateMbps, string ffmpegPreset,
+            float endDelaySeconds = 2f, string ffmpegCodec = "libx264")
         {
             Width = width;
             Height = height;
@@ -22,6 +38,7 @@ namespace ADOFAIRenderer
             BitrateMbps = bitrateMbps;
             FfmpegPreset = ffmpegPreset;
             EndDelaySeconds = endDelaySeconds;
+            FfmpegCodec = ffmpegCodec;
         }
 
         public int Width { get; }
@@ -30,6 +47,7 @@ namespace ADOFAIRenderer
         public int BitrateMbps { get; }
         public string FfmpegPreset { get; }
         public float EndDelaySeconds { get; }
+        public string FfmpegCodec { get; }
     }
 
     public sealed class RendererSettings : UnityModManager.ModSettings, IDrawable
@@ -63,6 +81,18 @@ namespace ADOFAIRenderer
 
         [Draw("Capture audio", DrawType.Toggle)]
         public bool CaptureAudio = true;
+
+        [Draw("BGA mode (hide tiles, planets & hit sounds)", DrawType.Toggle)]
+        public bool BgaMode = false;
+
+        [Draw("Encoding speed", DrawType.PopupList)]
+        public EncoderSpeed Encoding = EncoderSpeed.Quality;
+
+        [Draw("Video encoder", DrawType.PopupList)]
+        public VideoEncoder Encoder = VideoEncoder.Auto;
+
+        [Draw("Output folder", DrawType.Field)]
+        public string OutputDirectory = "";
 
         public void OnChange()
         {
@@ -111,7 +141,7 @@ namespace ADOFAIRenderer
                 heightOverride.HasValue ? EvenClamp(heightOverride.Value, MinHeight, MaxHeight) : baseProfile.Height,
                 fpsOverride.HasValue ? Clamp(fpsOverride.Value, MinFps, MaxFps) : baseProfile.Fps,
                 bitrateOverride.HasValue ? Clamp(bitrateOverride.Value, MinBitrate, MaxBitrate) : baseProfile.BitrateMbps,
-                baseProfile.FfmpegPreset, endDelay);
+                GetEncoderPreset(), endDelay, GetEncoderCodec());
         }
 
         public override void Save(UnityModManager.ModEntry modEntry)
@@ -124,6 +154,15 @@ namespace ADOFAIRenderer
             return UnityModManager.ModSettings.Load<RendererSettings>(modEntry) ?? new RendererSettings();
         }
 
+        internal string ResolveOutputDirectory()
+        {
+            var gameRoot = Directory.GetParent(UnityEngine.Application.dataPath).FullName;
+            var configured = Environment.ExpandEnvironmentVariables((OutputDirectory ?? string.Empty).Trim());
+            if (string.IsNullOrEmpty(configured)) return Path.Combine(gameRoot, "Renders");
+            if (!Path.IsPathRooted(configured)) configured = Path.Combine(gameRoot, configured);
+            return Path.GetFullPath(configured);
+        }
+
         private static RenderProfile GetPresetProfile(RendererPreset preset)
         {
             switch (preset)
@@ -133,6 +172,31 @@ namespace ADOFAIRenderer
                 case RendererPreset.UHD4K: return new RenderProfile(3840, 2160, 60, 50, "fast");
                 case RendererPreset.FullHD:
                 default: return new RenderProfile(1920, 1080, 60, 18, "veryfast");
+            }
+        }
+
+        private string GetEncoderPreset()
+        {
+            switch (Encoding)
+            {
+                case EncoderSpeed.Balanced: return "veryfast";
+                case EncoderSpeed.Quality: return "fast";
+                case EncoderSpeed.Maximum:
+                default: return "ultrafast";
+            }
+        }
+
+        private string GetEncoderCodec()
+        {
+            switch (Encoder)
+            {
+                case VideoEncoder.NvidiaNvenc: return "h264_nvenc";
+                case VideoEncoder.Software: return "libx264";
+                case VideoEncoder.Auto:
+                default:
+                    var gpu = UnityEngine.SystemInfo.graphicsDeviceName ?? string.Empty;
+                    return gpu.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0
+                        ? "h264_nvenc" : "libx264";
             }
         }
 

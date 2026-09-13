@@ -53,6 +53,15 @@ if ($FetchFFmpeg -and !$ffmpeg) {
 }
 if ($ffmpeg) {
     Copy-Item -LiteralPath $ffmpeg.FullName -Destination ADOFAIRenderer/bin/Release/ffmpeg.exe -Force
+    $ffmpegRoot = Split-Path (Split-Path $ffmpeg.FullName -Parent) -Parent
+    $ffmpegLicense = Join-Path $ffmpegRoot 'LICENSE'
+    $ffmpegReadme = Join-Path $ffmpegRoot 'README.txt'
+    if (Test-Path -LiteralPath $ffmpegLicense) {
+        Copy-Item -LiteralPath $ffmpegLicense -Destination ADOFAIRenderer/bin/Release/FFmpeg-LICENSE.txt -Force
+    }
+    if (Test-Path -LiteralPath $ffmpegReadme) {
+        Copy-Item -LiteralPath $ffmpegReadme -Destination ADOFAIRenderer/bin/Release/FFmpeg-README.txt -Force
+    }
 }
 if ($Test) {
     if (!$ffmpeg) { throw 'Run with -FetchFFmpeg -Test to install an encoding-capable FFmpeg.' }
