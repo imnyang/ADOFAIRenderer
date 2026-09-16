@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using HarmonyLib;
 using UnityModManagerNet;
 using UnityEngine;
@@ -49,6 +50,7 @@ namespace ADOFAIRenderer
                 {
                     if (Settings == null) return;
                     UnityModManager.UI.DrawFields(ref Settings, mod, DrawFieldMask.Any, Settings.OnChange);
+                    DrawPathSettings();
                 };
                 entry.OnUpdate = (mod, deltaTime) => UpdateManager.PumpMainThread();
                 entry.OnSaveGUI = mod => Settings?.Save(mod);
@@ -132,6 +134,72 @@ namespace ADOFAIRenderer
                 RpcServer?.Rebind(RendererController.Instance);
                 Entry.Logger.Log("Renderer host recreated after scene load: " + scene.name);
             }
+        }
+
+        private static void DrawPathSettings()
+        {
+            DrawPathField(
+                "Output folder",
+                ref Settings.OutputDirectory,
+                () => FileDialogService.PickFolder(GetOutputDialogDirectory()));
+
+            DrawPathField(
+                "FFmpeg executable",
+                ref Settings.FfmpegExecutable,
+                () => FileDialogService.PickFile(GetFfmpegDialogDirectory()));
+        }
+
+        private static void DrawPathField(string label, ref string value, Func<string> pick)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, GUILayout.ExpandWidth(false));
+            var current = value ?? string.Empty;
+            var edited = GUILayout.TextField(current, GUILayout.ExpandWidth(true));
+            if (!string.Equals(edited, current, StringComparison.Ordinal))
+            {
+                value = edited;
+                Settings.OnChange();
+            }
+
+            if (GUILayout.Button("Browse...", GUILayout.ExpandWidth(false)))
+            {
+                var selected = pick();
+                if (!string.IsNullOrEmpty(selected))
+                {
+                    value = selected;
+                    Settings.OnChange();
+                }
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        private static string GetOutputDialogDirectory()
+        {
+            try { return FileDialogService.FindExistingDirectory(Settings.ResolveOutputDirectory()); }
+            catch (Exception ex)
+            {
+                Entry.Logger.Log("Could not resolve output folder for file picker: " + ex.Message);
+                return FileDialogService.GetGameDirectory();
+            }
+        }
+
+        private static string GetFfmpegDialogDirectory()
+        {
+            try
+            {
+                var configured = Environment.ExpandEnvironmentVariables((Settings.FfmpegExecutable ?? string.Empty).Trim());
+                if (!string.IsNullOrEmpty(configured))
+                {
+                    if (!Path.IsPathRooted(configured))
+                        configured = Path.Combine(Entry.Path, configured);
+                    return FileDialogService.FindExistingDirectory(configured);
+                }
+            }
+            catch (Exception ex)
+            {
+                Entry.Logger.Log("Could not resolve FFmpeg path for file picker: " + ex.Message);
+            }
+            return FileDialogService.GetGameDirectory();
         }
     }
 }

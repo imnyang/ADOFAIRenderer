@@ -94,13 +94,16 @@ namespace ADOFAIRenderer
         [Draw("Video encoder", DrawType.PopupList)]
         public VideoEncoder Encoder = VideoEncoder.Auto;
 
-        [Draw("Output folder", DrawType.Field)]
+        // These paths are rendered by Main.OnGUI so a Browse button can sit
+        // next to each field. UMM's stock Field drawer cannot add a button
+        // to the same row.
+        [Draw(DrawType.Ignore)]
         public string OutputDirectory = "";
 
         [Draw("Open output folder after render", DrawType.Toggle)]
         public bool OpenOutputFolder = true;
 
-        [Draw("FFmpeg executable", DrawType.Field)]
+        [Draw(DrawType.Ignore)]
         public string FfmpegExecutable = "";
 
         public void OnChange()

@@ -20,6 +20,10 @@
   <Reference Include="$(ManagedDir)/Unity.Collections.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/Assembly-CSharp.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/Assembly-CSharp-firstpass.dll"><Private>false</Private></Reference>
+  <Reference Include="UnityFileDialog">
+   <HintPath Condition="Exists('$(ManagedDir)/UnityFileDialog.dll')">$(ManagedDir)/UnityFileDialog.dll</HintPath>
+   <Private>false</Private>
+  </Reference>
   <Reference Include="$(ManagedDir)/RDTools.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/DOTween.dll"><Private>false</Private></Reference>
   <Reference Include="$(ManagedDir)/Newtonsoft.Json.dll"><Private>false</Private></Reference>
