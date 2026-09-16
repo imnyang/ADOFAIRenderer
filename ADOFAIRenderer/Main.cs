@@ -19,6 +19,8 @@ namespace ADOFAIRenderer
         internal static RendererSettings Settings;
         private static Harmony harmony;
         private static GameObject host;
+        private static string diagnosticsSummary = "Diagnostics have not been run.";
+        private static string diagnosticsReport = "Click Run diagnostics to check FFmpeg, the output folder, the encoder, and game audio.";
 
         public static bool Load(UnityModManager.ModEntry entry)
         {
@@ -51,6 +53,7 @@ namespace ADOFAIRenderer
                     if (Settings == null) return;
                     UnityModManager.UI.DrawFields(ref Settings, mod, DrawFieldMask.Any, Settings.OnChange);
                     DrawPathSettings();
+                    DrawDiagnostics();
                 };
                 entry.OnUpdate = (mod, deltaTime) => UpdateManager.PumpMainThread();
                 entry.OnSaveGUI = mod => Settings?.Save(mod);
@@ -200,6 +203,37 @@ namespace ADOFAIRenderer
                 Entry.Logger.Log("Could not resolve FFmpeg path for file picker: " + ex.Message);
             }
             return FileDialogService.GetGameDirectory();
+        }
+
+        private static void DrawDiagnostics()
+        {
+            GUILayout.Space(8f);
+            GUILayout.Label("Diagnostics");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Run diagnostics", GUILayout.ExpandWidth(false))) RunDiagnostics();
+            if (GUILayout.Button("Copy report", GUILayout.ExpandWidth(false)))
+                GUIUtility.systemCopyBuffer = diagnosticsSummary + Environment.NewLine + diagnosticsReport;
+            GUILayout.EndHorizontal();
+            GUILayout.Label(diagnosticsSummary);
+            GUILayout.TextArea(diagnosticsReport, GUILayout.MinHeight(92f));
+        }
+
+        private static void RunDiagnostics()
+        {
+            try
+            {
+                var result = RendererDiagnostics.Run(Settings);
+                diagnosticsSummary = result.Summary;
+                diagnosticsReport = result.Report;
+                if (result.HasErrors) Entry.Logger.Error(diagnosticsSummary + Environment.NewLine + diagnosticsReport);
+                else Entry.Logger.Log(diagnosticsSummary + Environment.NewLine + diagnosticsReport);
+            }
+            catch (Exception ex)
+            {
+                diagnosticsSummary = "Diagnostics failed unexpectedly.";
+                diagnosticsReport = ex.ToString();
+                Entry.Logger.Error("Renderer diagnostics failed: " + ex);
+            }
         }
     }
 }

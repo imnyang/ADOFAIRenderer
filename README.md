@@ -54,6 +54,17 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 | Open output folder after render | 켜짐 | 렌더 완료 후 결과 파일이 있는 폴더 열기 |
 | FFmpeg executable | 자동 | 자동 설치된 FFmpeg, PATH의 `ffmpeg`, 또는 직접 지정한 경로 |
 
+### 진단
+
+설정 화면의 `Run diagnostics` 버튼으로 렌더 전에 다음 항목을 확인할 수 있습니다.
+
+- FFmpeg 실행 가능 여부와 버전
+- 선택한 비디오 인코더 지원 여부
+- 출력 폴더 생성 및 쓰기 권한
+- Unity 오디오 출력과 GPU readback 상태
+
+`Copy report`로 진단 결과를 클립보드에 복사해 문제를 신고할 때 첨부할 수 있습니다. 진단은 임시 파일을 출력 폴더에 만들었다가 즉시 삭제합니다.
+
 ### BGA Mode
 
 BGA Mode는 렌더 시작 시 씬의 원래 표시 상태를 저장하고, 렌더 직전에 다음 요소를 숨깁니다.

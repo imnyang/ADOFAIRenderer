@@ -625,7 +625,7 @@ namespace ADOFAIRenderer.Renderer
             finally { processPriorityChanged = false; }
         }
 
-        private static string ResolveFfmpegExecutable(RendererSettings settings)
+        internal static string ResolveFfmpegExecutable(RendererSettings settings)
         {
             var configured = settings.ResolveFfmpegExecutable(Main.Entry.Path);
             if (!string.IsNullOrEmpty(configured)) return configured;

@@ -47,6 +47,17 @@ On startup, the mod checks GitHub's latest stable release. Drafts and pre-releas
 | Output folder | `Renders` | Relative to the game folder or absolute |
 | FFmpeg executable | Automatic | Auto-installed executable, PATH lookup, or an explicit path |
 
+### Diagnostics
+
+Use `Run diagnostics` in the settings screen before rendering to check:
+
+- whether FFmpeg starts and which version is installed;
+- whether the selected video encoder is available;
+- whether the output folder can be created and written to; and
+- Unity audio output and GPU readback status.
+
+Use `Copy report` to copy the result when reporting a problem. Diagnostics create a temporary file in the output folder and delete it immediately.
+
 ### BGA Mode
 
 BGA Mode saves the original renderer state, hides gameplay-only visuals immediately before camera rendering, skips hit-time sound scheduling, and restores the original state after completion, cancellation, or failure. Music, background, camera motion, and decorations remain active. Disable `Capture audio` as well if the music should also be excluded.
