@@ -21,11 +21,11 @@ After downloading the mod, place it neatly in the game's `Mods` directory:
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-Keep `ADOFAIRenderer.dll`, `Info.json`, and the FFmpeg executable together. The FFmpeg license/readme files should also be distributed with the executable. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
+Install `ADOFAIRenderer.dll` and `Info.json` in the mod folder. On first launch with an internet connection, the mod downloads the FFmpeg binary for the current platform into `FFmpeg/<platform>`; existing installations or an explicit `FFmpeg executable` setting are respected. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
 
 Runtime support is intended for Windows, macOS, and Linux when the platform has a compatible ADOFAI and Unity Mod Manager environment. Windows uses `ffmpeg.exe`; macOS/Linux use an executable `ffmpeg` available on PATH or selected in the `FFmpeg executable` setting.
 
-Every normal build packages all four platforms—`FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/`, and `FFmpeg/linux-x64/`—with their license/readme files, regardless of the build host. Apple Silicon automatically selects `macos-arm64`; the executable for the current build host is also copied to the Release root for compatibility. `-FetchFFmpeg` remains accepted for compatibility with older build commands.
+The build output does not contain FFmpeg. When the mod runs, it automatically selects and downloads one binary: `windows-x64`, `linux-x64`, `macos-x64`, or `macos-arm64` for Apple Silicon.
 
 ## Automatic updates
 
@@ -45,7 +45,7 @@ On startup, the mod checks GitHub's latest stable release. Drafts and pre-releas
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / Software |
 | Output folder | `Renders` | Relative to the game folder or absolute |
-| FFmpeg executable | Automatic | Bundled executable, PATH lookup, or an explicit path |
+| FFmpeg executable | Automatic | Auto-installed executable, PATH lookup, or an explicit path |
 
 ### BGA Mode
 

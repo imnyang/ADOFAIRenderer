@@ -21,11 +21,11 @@ ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义�
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-请将 `ADOFAIRenderer.dll`、`Info.json` 和 FFmpeg 可执行文件放在同一目录，并同时分发 FFmpeg 的许可证和 README 文件。Windows 使用 `ffmpeg.exe`，macOS/Linux 使用有执行权限的 `ffmpeg`，也可以在 `FFmpeg executable` 设置中指定路径。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
+请将 `ADOFAIRenderer.dll` 和 `Info.json` 放入模组目录。首次启动时，模组会把当前平台的 FFmpeg 自动下载到 `FFmpeg/<platform>/`；已有安装或 `FFmpeg executable` 中指定的路径会优先使用。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
 
 只要平台提供兼容的 ADOFAI 和 Unity Mod Manager 环境，Windows、macOS 和 Linux 都可以运行。
 
-普通构建无论在哪个系统上执行，都会在 Release 文件夹的 `FFmpeg/windows-x64/`、`FFmpeg/macos-x64/`、`FFmpeg/macos-arm64/` 和 `FFmpeg/linux-x64/` 中包含四个平台的 FFmpeg 以及许可证/README 文件。Apple Silicon 会自动选择 `macos-arm64`。`-FetchFFmpeg` 仍可用于兼容旧的构建命令。
+构建输出不包含 FFmpeg。模组运行时会自动选择并下载一个版本：Windows 为 `windows-x64`，Linux 为 `linux-x64`，Intel Mac 为 `macos-x64`，Apple Silicon 为 `macos-arm64`。
 
 ## 自动更新
 

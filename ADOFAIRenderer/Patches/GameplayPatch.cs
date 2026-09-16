@@ -5,9 +5,22 @@ using ADOFAIRenderer.Renderer;
 
 namespace ADOFAIRenderer.Patches
 {
-    [HarmonyPatch(typeof(scrHitTextManager), nameof(scrHitTextManager.ShowHitText), typeof(HitMargin), typeof(scrPlanet), typeof(float))]
+    [HarmonyPatch]
     internal static class HideJudgmentsPatch
     {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            // r150 added an optional nullable judgment identifier. Keep the
+            // legacy target as a fallback for pre-r150 game assemblies.
+            var current = AccessTools.Method(typeof(scrHitTextManager), nameof(scrHitTextManager.ShowHitText),
+                new[] { typeof(HitMargin), typeof(scrPlanet), typeof(float), typeof(int?) });
+            if (current != null) yield return current;
+
+            var legacy = AccessTools.Method(typeof(scrHitTextManager), nameof(scrHitTextManager.ShowHitText),
+                new[] { typeof(HitMargin), typeof(scrPlanet), typeof(float) });
+            if (legacy != null) yield return legacy;
+        }
+
         static bool Prefix() => !RendererController.ControlsTime;
     }
 

@@ -13,6 +13,11 @@ namespace ADOFAIRenderer.Renderer
     [DefaultExecutionOrder(32000)]
     public sealed class RendererController : MonoBehaviour
     {
+        // Application.targetFrameRate = -1 lets Unity choose the platform's
+        // default rate. On desktop that can follow the monitor refresh rate
+        // (for example, exactly 200 Hz), which unintentionally caps offline
+        // rendering even when vSync is disabled.
+        private const int OfflineTargetFrameRate = 6000;
         private static readonly WaitForEndOfFrame EndOfFrame = new WaitForEndOfFrame();
         public static RendererController Instance { get; private set; }
         public static bool ControlsTime => Instance != null && Instance.saved != null &&
@@ -91,6 +96,12 @@ namespace ADOFAIRenderer.Renderer
         public void StartRender()
         {
             if (Busy || !Main.Enabled) return;
+            if (FfmpegInstaller.IsDownloading)
+            {
+                Message = FfmpegInstaller.StatusMessage;
+                ShowToast(Message, 5f, false);
+                return;
+            }
             State = RenderState.Preparing;
             cancellation = false;
             CapturedFrames = TotalFrames = 0;
@@ -215,7 +226,7 @@ namespace ADOFAIRenderer.Renderer
             Time.timeScale = 1;
             DG.Tweening.DOTween.useSmoothDeltaTime = false;
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = -1;
+            Application.targetFrameRate = OfflineTargetFrameRate;
             Application.runInBackground = true;
             if (!captureAudioForRun) AudioListener.volume = 0;
             AudioListener.pause = false;
@@ -410,20 +421,16 @@ namespace ADOFAIRenderer.Renderer
             var camera = scrCamera.instance;
             if (camera == null) return;
 
-            var defaultZoom = scrCamera.DefaultCameraOrthoSize;
-            if (float.IsNaN(defaultZoom) || float.IsInfinity(defaultZoom) || defaultZoom <= 0f)
-                defaultZoom = camera.camobj != null && camera.camobj.orthographic
-                    ? camera.camobj.orthographicSize : 5f;
-
             var controller = ADOBase.controller;
             var player = controller != null ? controller.playerOne : null;
             try
             {
-                // This is the same camera path used by normal gameplay. A zero
-                // duration applies the player framing immediately, without
-                // adding a tween that could run ahead of the render clock.
+                // This is the same camera path used by normal gameplay. Passing
+                // zero for zoom preserves the camera's current gameplay zoom;
+                // scrCamera.DefaultCameraOrthoSize is the base orthographic
+                // size, not the zoom multiplier expected by this method.
                 if (player != null)
-                    controller.MoveCameraToPlayer(0f, DG.Tweening.Ease.Linear, defaultZoom);
+                    controller.MoveCameraToPlayer(0f, DG.Tweening.Ease.Linear, 0f);
             }
             catch (Exception ex)
             {
@@ -441,16 +448,13 @@ namespace ADOFAIRenderer.Renderer
                 Main.Entry.Logger.Log("Camera position refocus unavailable: " + ex.Message);
             }
 
-            // scrCamera reapplies zoomSize during its update, so set both its
-            // source value and every camera in the compositing chain.
-            camera.zoomSize = defaultZoom;
-            foreach (var outputCamera in new[] { camera.Bgcamstatic, camera.BGcam, camera.camobj })
-            {
-                if (outputCamera != null && outputCamera.orthographic)
-                    outputCamera.orthographicSize = defaultZoom;
-            }
-            Main.Entry.Logger.Log(string.Format("Prepared render camera: zoom={0:F3}, player={1}",
-                defaultZoom, player != null));
+            // Leave zoomSize and each camera's orthographicSize untouched. The
+            // game has already applied the normal gameplay framing during the
+            // preparation frame, and scrCamera.UpdateSize owns these values.
+            var orthoSize = camera.camobj != null && camera.camobj.orthographic
+                ? camera.camobj.orthographicSize : float.NaN;
+            Main.Entry.Logger.Log(string.Format("Prepared render camera: zoom={0:F3}, ortho={1:F3}, player={2}",
+                camera.zoomSize, orthoSize, player != null));
         }
         private void ValidateLoadedLevel()
         {
@@ -576,16 +580,14 @@ namespace ADOFAIRenderer.Renderer
             var configured = settings.ResolveFfmpegExecutable(Main.Entry.Path);
             if (!string.IsNullOrEmpty(configured)) return configured;
 
+            var bundled = FfmpegInstaller.GetBundledExecutable(Main.Entry.Path);
+            if (!string.IsNullOrEmpty(bundled) && File.Exists(bundled)) return bundled;
+
             var windows = Application.platform == RuntimePlatform.WindowsPlayer
                 || Application.platform == RuntimePlatform.WindowsEditor;
-            var mac = Application.platform == RuntimePlatform.OSXPlayer
-                || Application.platform == RuntimePlatform.OSXEditor;
-            var platform = windows ? "windows-x64" : mac ? (IsAppleSiliconProcess() ? "macos-arm64" : "macos-x64") : "linux-x64";
             var names = windows ? new[] { "ffmpeg.exe", "ffmpeg" } : new[] { "ffmpeg", "ffmpeg.exe" };
             var candidates = new[]
             {
-                Path.Combine(Main.Entry.Path, "FFmpeg", platform, names[0]),
-                Path.Combine(Main.Entry.Path, "FFmpeg", platform, names[1]),
                 Path.Combine(Main.Entry.Path, names[0]),
                 Path.Combine(Main.Entry.Path, names[1])
             };
@@ -597,30 +599,6 @@ namespace ADOFAIRenderer.Renderer
             // Let the operating system resolve a system-installed FFmpeg from
             // PATH. This is the normal setup on macOS and Linux.
             return names[0];
-        }
-
-        private static bool IsAppleSiliconProcess()
-        {
-            try
-            {
-                using (var process = new System.Diagnostics.Process {
-                    StartInfo = new System.Diagnostics.ProcessStartInfo {
-                        FileName = "/usr/bin/uname",
-                        Arguments = "-m",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true
-                    }
-                })
-                {
-                    process.Start();
-                    var architecture = process.StandardOutput.ReadToEnd().Trim();
-                    process.WaitForExit();
-                    return string.Equals(architecture, "arm64", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(architecture, "aarch64", StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            catch { return false; }
         }
 
         internal static string FormatDuration(double seconds)
@@ -695,6 +673,11 @@ namespace ADOFAIRenderer.Renderer
 
         private IEnumerator LoadRpcLevelAndStartCore(RpcRenderJob job)
         {
+            while (FfmpegInstaller.IsDownloading)
+            {
+                if (cancellation) throw new OperationCanceledException();
+                yield return null;
+            }
             if (!File.Exists(job.LevelPath))
                 throw new FileNotFoundException("Level file does not exist.", job.LevelPath);
 
@@ -832,8 +815,11 @@ namespace ADOFAIRenderer.Renderer
         private static void ApplyFramePacing()
         {
             // Game settings or other mods may restore a cap after editor.Play.
+            // Do not use -1 here: Unity may resolve it to the display refresh
+            // rate, making a 200 Hz monitor a hard offline-render cap.
             if (QualitySettings.vSyncCount != 0) QualitySettings.vSyncCount = 0;
-            if (Application.targetFrameRate != -1) Application.targetFrameRate = -1;
+            if (Application.targetFrameRate != OfflineTargetFrameRate)
+                Application.targetFrameRate = OfflineTargetFrameRate;
             if (UnityEngine.Rendering.OnDemandRendering.renderFrameInterval != 1)
                 UnityEngine.Rendering.OnDemandRendering.renderFrameInterval = 1;
         }

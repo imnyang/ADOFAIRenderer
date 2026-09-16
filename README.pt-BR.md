@@ -21,11 +21,11 @@ Depois de baixar o mod, coloque-o corretamente na pasta `Mods` do jogo:
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-Mantenha `ADOFAIRenderer.dll`, `Info.json` e o executável do FFmpeg na mesma pasta. No Windows use `ffmpeg.exe`; no macOS/Linux use um `ffmpeg` executável ou informe o caminho em `FFmpeg executable`. Distribua também os arquivos de licença e README do FFmpeg. Ative o mod no Unity Mod Manager, abra uma fase personalizada, configure as opções e pressione `F6`.
+Coloque `ADOFAIRenderer.dll` e `Info.json` na pasta do mod. Na primeira execução, o mod baixa automaticamente o FFmpeg da plataforma atual para `FFmpeg/<platform>/`; uma instalação existente ou um caminho definido em `FFmpeg executable` será respeitado. Ative o mod no Unity Mod Manager, abra uma fase personalizada, configure as opções e pressione `F6`.
 
 O runtime suporta Windows, macOS e Linux quando houver uma instalação compatível do ADOFAI e do Unity Mod Manager.
 
-Qualquer compilação normal inclui, independentemente do sistema usado para compilar, os quatro executáveis do FFmpeg em `FFmpeg/windows-x64/`, `FFmpeg/macos-x64/`, `FFmpeg/macos-arm64/` e `FFmpeg/linux-x64/`, junto com os arquivos de licença e README. O Apple Silicon seleciona `macos-arm64` automaticamente. `-FetchFFmpeg` continua aceito para compatibilidade com comandos de compilação antigos.
+A saída da compilação não inclui FFmpeg. Ao executar, o mod seleciona e baixa automaticamente apenas uma versão: `windows-x64`, `linux-x64`, `macos-x64` ou `macos-arm64` para Apple Silicon.
 
 ## Atualizações automáticas
 

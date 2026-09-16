@@ -23,11 +23,11 @@ ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل ا�
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-ضع `ADOFAIRenderer.dll` و`Info.json` وملف FFmpeg التنفيذي في المجلد نفسه، ووزّع أيضاً ملفات ترخيص FFmpeg وملف README الخاص به. يستخدم Windows الملف `ffmpeg.exe`، بينما يستخدم macOS/Linux الملف التنفيذي `ffmpeg` مع صلاحية التشغيل، أو المسار المحدد في إعداد `FFmpeg executable`. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
+ضع `ADOFAIRenderer.dll` و`Info.json` في مجلد التعديل. عند التشغيل لأول مرة، ينزّل التعديل تلقائياً ملف FFmpeg المناسب للمنصة إلى `FFmpeg/<platform>/`، مع احترام أي تثبيت موجود أو مسار محدد في إعداد `FFmpeg executable`. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
 
 يدعم التشغيل Windows وmacOS وLinux عندما تتوفر نسخة متوافقة من ADOFAI وUnity Mod Manager.
 
-يتضمن أي بناء عادي، بصرف النظر عن نظام المضيف الذي تم عليه البناء، ملفات FFmpeg للمنصات الأربع داخل `FFmpeg/windows-x64/` و`FFmpeg/macos-x64/` و`FFmpeg/macos-arm64/` و`FFmpeg/linux-x64/` مع ملفات الترخيص وREADME. يتم اختيار `macos-arm64` تلقائياً على Apple Silicon. يبقى الخيار `-FetchFFmpeg` متاحاً للتوافق مع أوامر البناء القديمة.
+لا يتضمن ناتج البناء FFmpeg. عند تشغيل التعديل، يختار تلقائياً وينزّل نسخة واحدة فقط: `windows-x64` أو `linux-x64` أو `macos-x64` أو `macos-arm64` لأجهزة Apple Silicon.
 
 ## التحديث التلقائي
 

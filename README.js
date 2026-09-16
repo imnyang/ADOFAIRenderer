@@ -119,24 +119,12 @@ recursive: true
 
 const requiredFiles = [
 'ADOFAIRenderer.dll',
-'Info.json',
-'ffmpeg.exe'
+'Info.json'
 ];
 
 requiredFiles.forEach(file => {
 if (!fs.existsSync(path.join(destination, file))) {
 throw new Error(`MissingRequiredFile:${file}`);
-}
-});
-
-const distributionFiles = [
-'FFmpeg-LICENSE.txt',
-'FFmpeg-README.txt'
-];
-
-distributionFiles.forEach(file => {
-if (!fs.existsSync(path.join(destination, file))) {
-throw new Error(`MissingDistributionFile:${file}`);
 }
 });
 
@@ -509,7 +497,7 @@ automaticQualityReduction: false
 };
 
 const build = {
-command: String.raw`.\build.ps1 -FetchFFmpeg -Test`,
+command: String.raw`.\build.ps1 -Test`,
 
 options: {
 GameDir: '<GameDir>',

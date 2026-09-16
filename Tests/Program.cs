@@ -63,7 +63,7 @@ internal static class Program
             FFmpegEncoder.MuxAudio(args[0], fast, wav, muxed);
             var muxedVideoHash = Probe(args[0], "-v error -i \"" + muxed + "\" -map 0:v:0 -f framemd5 -");
             Assert(muxedVideoHash == fastHash, "Audio mux changed video frames or timestamps.");
-            var metadata = Probe(Path.Combine(Path.GetDirectoryName(args[0]), "ffprobe.exe"),
+            var metadata = Probe(ResolveProbe(args[0]),
                 "-v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels,duration -of default=noprint_wrappers=1 \"" + muxed + "\"");
             Assert(metadata.Contains("codec_name=aac") && metadata.Contains("sample_rate=48000") && metadata.Contains("channels=2") && metadata.Contains("duration=1.000000"), "Muxed audio format/duration mismatch.");
             Console.WriteLine("PASS: four-hour clock, DSP anchoring, pitch/offset, 1080p60/60 frames, frame order, identical fast/slow video, failure, cancellation, AAC mux and matching A/V duration.");
@@ -96,5 +96,17 @@ internal static class Program
             string result = process.StandardOutput.ReadToEnd(); process.WaitForExit();
             Assert(process.ExitCode == 0, "Video decode failed."); return result;
         }
+    }
+    private static string ResolveProbe(string ffmpeg)
+    {
+        var directory = Path.GetDirectoryName(ffmpeg);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            var sibling = Path.Combine(directory, "ffprobe.exe");
+            if (File.Exists(sibling)) return sibling;
+            sibling = Path.Combine(directory, "ffprobe");
+            if (File.Exists(sibling)) return sibling;
+        }
+        return "ffprobe";
     }
 }

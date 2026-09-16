@@ -35,6 +35,7 @@ namespace ADOFAIRenderer
                 SceneManager.sceneLoaded += OnSceneLoaded;
                 Enabled = true;
                 StartRpcServer();
+                FfmpegInstaller.Start(entry, Settings);
                 UpdateManager.Start(entry);
                 entry.OnToggle = (mod, enabled) =>
                 {

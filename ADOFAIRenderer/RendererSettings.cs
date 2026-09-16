@@ -70,7 +70,10 @@ namespace ADOFAIRenderer
         [Draw("Height", DrawType.Field, Min = MinHeight, Max = MaxHeight, VisibleOn = "Preset|Custom")]
         public int Height = 1080;
 
-        [Draw("Target FPS", DrawType.Field, Min = MinFps, Max = MaxFps, VisibleOn = "Preset|Custom")]
+        // Do not pass Min/Max to UMM for a text field. UMM clamps each parsed
+        // keystroke, so typing a value such as 120 would turn the first "1"
+        // into 15 before the remaining digits can be entered.
+        [Draw("Target FPS", DrawType.Field, VisibleOn = "Preset|Custom")]
         public int Fps = 60;
 
         [Draw("Video bitrate (Mbps)", DrawType.Field, Min = MinBitrate, Max = MaxBitrate, VisibleOn = "Preset|Custom")]
@@ -111,7 +114,6 @@ namespace ADOFAIRenderer
             }
             Width = EvenClamp(Width, MinWidth, MaxWidth);
             Height = EvenClamp(Height, MinHeight, MaxHeight);
-            Fps = Clamp(Fps, MinFps, MaxFps);
             BitrateMbps = Clamp(BitrateMbps, MinBitrate, MaxBitrate);
             if (float.IsNaN(EndDelaySeconds) || float.IsInfinity(EndDelaySeconds)) EndDelaySeconds = 2f;
             EndDelaySeconds = Math.Max(0f, Math.Min(30f, EndDelaySeconds));
@@ -149,12 +151,15 @@ namespace ADOFAIRenderer
 
         public override void Save(UnityModManager.ModEntry modEntry)
         {
+            Normalize();
             Save(this, modEntry);
         }
 
         public static RendererSettings Load(UnityModManager.ModEntry modEntry)
         {
-            return UnityModManager.ModSettings.Load<RendererSettings>(modEntry) ?? new RendererSettings();
+            var settings = UnityModManager.ModSettings.Load<RendererSettings>(modEntry) ?? new RendererSettings();
+            settings.Normalize();
+            return settings;
         }
 
         internal string ResolveOutputDirectory()
@@ -226,6 +231,16 @@ namespace ADOFAIRenderer
         private static int Clamp(int value, int min, int max)
         {
             return Math.Max(min, Math.Min(max, value));
+        }
+
+        private void Normalize()
+        {
+            Width = EvenClamp(Width, MinWidth, MaxWidth);
+            Height = EvenClamp(Height, MinHeight, MaxHeight);
+            Fps = Clamp(Fps, MinFps, MaxFps);
+            BitrateMbps = Clamp(BitrateMbps, MinBitrate, MaxBitrate);
+            if (float.IsNaN(EndDelaySeconds) || float.IsInfinity(EndDelaySeconds)) EndDelaySeconds = 2f;
+            EndDelaySeconds = Clamp(EndDelaySeconds, 0f, 30f);
         }
 
         private static float Clamp(float value, float min, float max)

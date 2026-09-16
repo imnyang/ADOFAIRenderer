@@ -21,11 +21,11 @@ ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度と
 A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 ```
 
-`ADOFAIRenderer.dll`、`Info.json`、FFmpeg実行ファイルを同じフォルダに置いてください。Windowsでは `ffmpeg.exe`、macOS/Linuxでは実行権限を付けた `ffmpeg`、または `FFmpeg executable` 設定のパスを使用します。FFmpegのライセンスファイルとREADMEも一緒に配布します。Unity Mod Managerで有効化し、カスタムレベルを開いて設定後、`F6`を押します。
+`ADOFAIRenderer.dll` と `Info.json` をModフォルダに置いてください。初回起動時に、現在のプラットフォーム用FFmpegが `FFmpeg/<platform>/` に自動ダウンロードされます。既存のインストールや `FFmpeg executable` 設定のパスはそのまま使用します。Unity Mod Managerで有効化し、カスタムレベルを開いて設定後、`F6`を押します。
 
 対応環境は、互換性のあるADOFAIとUnity Mod Managerが利用できるWindows、macOS、Linuxです。
 
-通常のビルドでは、ビルドしたOSに関係なく `FFmpeg/windows-x64/`、`FFmpeg/macos-x64/`、`FFmpeg/macos-arm64/`、`FFmpeg/linux-x64/` の4プラットフォーム分とライセンス/READMEがReleaseフォルダに含まれます。Apple Siliconでは `macos-arm64` が自動選択されます。`-FetchFFmpeg` は以前のビルドコマンドとの互換性のために使用できます。
+ビルド出力にはFFmpegを含めません。Mod実行時にWindowsは `windows-x64`、Linuxは `linux-x64`、Intel Macは `macos-x64`、Apple Siliconは `macos-arm64` を自動選択し、その1つだけをダウンロードします。
 
 ## 自動アップデート
 

@@ -359,7 +359,7 @@ namespace ADOFAIRenderer
 
         private static void EnsureUnixExecutables(string packageRoot)
         {
-            foreach (var name in new[] { "ffmpeg", "ffprobe" })
+            foreach (var name in new[] { "ffmpeg" })
             {
                 foreach (var path in Directory.GetFiles(packageRoot, name, SearchOption.AllDirectories))
                 {
