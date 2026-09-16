@@ -51,6 +51,7 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / Software |
 | Output folder | `Renders` | 게임 폴더 기준 상대 경로 또는 절대 경로 |
+| Open output folder after render | 켜짐 | 렌더 완료 후 결과 파일이 있는 폴더 열기 |
 | FFmpeg executable | 자동 | 자동 설치된 FFmpeg, PATH의 `ffmpeg`, 또는 직접 지정한 경로 |
 
 ### BGA Mode

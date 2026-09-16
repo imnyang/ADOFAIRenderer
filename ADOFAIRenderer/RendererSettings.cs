@@ -97,6 +97,9 @@ namespace ADOFAIRenderer
         [Draw("Output folder", DrawType.Field)]
         public string OutputDirectory = "";
 
+        [Draw("Open output folder after render", DrawType.Toggle)]
+        public bool OpenOutputFolder = true;
+
         [Draw("FFmpeg executable", DrawType.Field)]
         public string FfmpegExecutable = "";
 

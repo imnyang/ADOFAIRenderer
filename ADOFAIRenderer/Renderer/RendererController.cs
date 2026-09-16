@@ -80,6 +80,7 @@ namespace ADOFAIRenderer.Renderer
         private double scheduledMusicLengthSeconds;
         private float toastUntil;
         private bool captureAudioForRun;
+        private bool openOutputFolderForRun;
         private RenderProfile profile;
         private float escapeHeldAt = -1f;
         private bool forceCancelTriggered;
@@ -127,6 +128,7 @@ namespace ADOFAIRenderer.Renderer
             captureAudioForRun = activeRpcJob != null
                 ? activeRpcJob.CaptureAudio
                 : Main.Settings == null || Main.Settings.CaptureAudio;
+            openOutputFolderForRun = settings.OpenOutputFolder;
             activeRpcJob?.SetState(RpcJobState.Preparing);
             ShowToast(Message, 4f);
             routine = StartCoroutine(GuardedRun());
@@ -353,7 +355,55 @@ namespace ADOFAIRenderer.Renderer
                 GameFrameSeconds, ReadbackWaitSeconds, ReadbackLatencySeconds, ReadbackCopySeconds,
                 PeakPendingReadbacks, EncoderWriteSeconds, PeakEncoderQueueDepth, WrittenFrames,
                 AudioCaptureSeconds, FinalizationSeconds, OutputPath));
+            if (openOutputFolderForRun) OpenOutputFolder();
         }
+
+        private void OpenOutputFolder()
+        {
+            var directory = Path.GetDirectoryName(OutputPath);
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            {
+                Main.Entry.Logger.Log("Could not open render output folder: directory is unavailable.");
+                return;
+            }
+
+            try
+            {
+                var windows = Application.platform == RuntimePlatform.WindowsPlayer
+                    || Application.platform == RuntimePlatform.WindowsEditor;
+                var mac = Application.platform == RuntimePlatform.OSXPlayer
+                    || Application.platform == RuntimePlatform.OSXEditor;
+                var fileName = windows ? "explorer.exe" : mac ? "open" : "xdg-open";
+                var arguments = windows
+                    ? "/select,\"" + OutputPath + "\""
+                    : mac
+                        ? "-R " + QuoteProcessArgument(OutputPath)
+                        : QuoteProcessArgument(directory);
+
+                using (var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                }))
+                {
+                    if (process == null) throw new InvalidOperationException("The file manager process did not start.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Opening a folder is a convenience and must not turn a
+                // successfully completed render into a failed one.
+                Main.Entry.Logger.Error("Could not open render output folder: " + ex.Message);
+            }
+        }
+
+        private static string QuoteProcessArgument(string value)
+        {
+            return "\"" + (value ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        }
+
         internal void ScheduleAudio(scrConductor conductor)
         {
             double pitch = conductor.song.pitch;
