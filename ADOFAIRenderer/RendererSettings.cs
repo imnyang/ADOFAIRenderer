@@ -20,17 +20,11 @@ namespace ADOFAIRenderer
         Quality
     }
 
-    public enum VideoEncoder
-    {
-        Auto,
-        NvidiaNvenc,
-        Software
-    }
-
     internal sealed class RenderProfile
     {
         public RenderProfile(int width, int height, int fps, int bitrateMbps, string ffmpegPreset,
-            float endDelaySeconds = 2f, string ffmpegCodec = "libx264")
+            float endDelaySeconds = 2f, string ffmpegCodec = "libx264", VideoCodec videoCodec = VideoCodec.H264,
+            VideoBitDepth bitDepth = VideoBitDepth.Eight)
         {
             Width = width;
             Height = height;
@@ -39,6 +33,8 @@ namespace ADOFAIRenderer
             FfmpegPreset = ffmpegPreset;
             EndDelaySeconds = endDelaySeconds;
             FfmpegCodec = ffmpegCodec;
+            VideoCodec = VideoCodecCatalog.Normalize(videoCodec);
+            BitDepth = VideoCodecCatalog.Normalize(bitDepth);
         }
 
         public int Width { get; }
@@ -48,6 +44,13 @@ namespace ADOFAIRenderer
         public string FfmpegPreset { get; }
         public float EndDelaySeconds { get; }
         public string FfmpegCodec { get; }
+        public VideoCodec VideoCodec { get; }
+        public VideoBitDepth BitDepth { get; }
+        public string PixelFormat => BitDepth == VideoBitDepth.Ten ? "yuv420p10le" : "yuv420p";
+        public string ContainerExtension => VideoCodecCatalog.Get(VideoCodec).ContainerExtension;
+        public string ContainerMimeType => VideoCodecCatalog.Get(VideoCodec).MimeType;
+        public string AudioEncoder => VideoCodecCatalog.Get(VideoCodec).AudioEncoder;
+        public string AudioBitrate => VideoCodecCatalog.Get(VideoCodec).AudioBitrate;
     }
 
     public sealed class RendererSettings : UnityModManager.ModSettings, IDrawable
@@ -94,6 +97,12 @@ namespace ADOFAIRenderer
         [Draw("Video encoder", DrawType.PopupList)]
         public VideoEncoder Encoder = VideoEncoder.Auto;
 
+        [Draw("Video codec", DrawType.PopupList)]
+        public VideoCodec Codec = VideoCodec.H264;
+
+        [Draw("Video bit depth", DrawType.PopupList)]
+        public VideoBitDepth BitDepth = VideoBitDepth.Eight;
+
         // These paths are rendered by Main.OnGUI so a Browse button can sit
         // next to each field. UMM's stock Field drawer cannot add a button
         // to the same row.
@@ -127,14 +136,16 @@ namespace ADOFAIRenderer
 
         internal RenderProfile ResolveProfile()
         {
-            return ResolveProfile(null, null, null, null, null, null);
+            return ResolveProfile(null, null, null, null, null, null, null, null);
         }
 
         internal RenderProfile ResolveProfile(RendererPreset? presetOverride, int? widthOverride,
-            int? heightOverride, int? fpsOverride, int? bitrateOverride, float? endDelayOverride)
+            int? heightOverride, int? fpsOverride, int? bitrateOverride, float? endDelayOverride,
+            VideoCodec? codecOverride, VideoBitDepth? bitDepthOverride)
         {
             var hasVideoOverride = presetOverride.HasValue || widthOverride.HasValue || heightOverride.HasValue
-                || fpsOverride.HasValue || bitrateOverride.HasValue;
+                || fpsOverride.HasValue || bitrateOverride.HasValue || codecOverride.HasValue
+                || bitDepthOverride.HasValue;
             var preset = presetOverride ?? (hasVideoOverride ? RendererPreset.Custom : Preset);
             var baseProfile = preset == RendererPreset.Custom
                 ? new RenderProfile(
@@ -152,7 +163,8 @@ namespace ADOFAIRenderer
                 heightOverride.HasValue ? EvenClamp(heightOverride.Value, MinHeight, MaxHeight) : baseProfile.Height,
                 fpsOverride.HasValue ? Clamp(fpsOverride.Value, MinFps, MaxFps) : baseProfile.Fps,
                 bitrateOverride.HasValue ? Clamp(bitrateOverride.Value, MinBitrate, MaxBitrate) : baseProfile.BitrateMbps,
-                GetEncoderPreset(), endDelay, GetEncoderCodec());
+                GetEncoderPreset(), endDelay, GetEncoderCodec(codecOverride ?? Codec), codecOverride ?? Codec,
+                bitDepthOverride ?? BitDepth);
         }
 
         public override void Save(UnityModManager.ModEntry modEntry)
@@ -220,18 +232,21 @@ namespace ADOFAIRenderer
             }
         }
 
-        private string GetEncoderCodec()
+        private string GetEncoderCodec(VideoCodec codec)
         {
-            switch (Encoder)
-            {
-                case VideoEncoder.NvidiaNvenc: return "h264_nvenc";
-                case VideoEncoder.Software: return "libx264";
-                case VideoEncoder.Auto:
-                default:
-                    var gpu = UnityEngine.SystemInfo.graphicsDeviceName ?? string.Empty;
-                    return gpu.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0
-                        ? "h264_nvenc" : "libx264";
-            }
+            var gpu = (UnityEngine.SystemInfo.graphicsDeviceName ?? string.Empty) + " "
+                + (UnityEngine.SystemInfo.graphicsDeviceVendor ?? string.Empty);
+            var nvidia = ContainsGpuName(gpu, "NVIDIA");
+            var intel = ContainsGpuName(gpu, "Intel");
+            var amd = ContainsGpuName(gpu, "AMD") || ContainsGpuName(gpu, "ATI")
+                || ContainsGpuName(gpu, "Radeon");
+            return VideoCodecCatalog.Get(VideoCodecCatalog.Normalize(codec))
+                .ResolveEncoder(Encoder, nvidia, intel, amd);
+        }
+
+        private static bool ContainsGpuName(string value, string name)
+        {
+            return value.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static int Clamp(int value, int min, int max)
@@ -245,6 +260,9 @@ namespace ADOFAIRenderer
             Height = EvenClamp(Height, MinHeight, MaxHeight);
             Fps = Clamp(Fps, MinFps, MaxFps);
             BitrateMbps = Clamp(BitrateMbps, MinBitrate, MaxBitrate);
+            Codec = VideoCodecCatalog.Normalize(Codec);
+            BitDepth = VideoCodecCatalog.Normalize(BitDepth);
+            if (!Enum.IsDefined(typeof(VideoEncoder), Encoder)) Encoder = VideoEncoder.Auto;
             if (float.IsNaN(EndDelaySeconds) || float.IsInfinity(EndDelaySeconds)) EndDelaySeconds = 2f;
             EndDelaySeconds = Clamp(EndDelaySeconds, 0f, 30f);
         }
