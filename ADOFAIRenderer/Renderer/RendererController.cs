@@ -3,13 +3,14 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using HarmonyLib;
 using UnityEngine;
 using ADOFAIRenderer.Patches;
 
 namespace ADOFAIRenderer.Renderer
 {
-    public enum RenderState { Idle, Preparing, Rendering, Finishing, Completed, Failed, Cancelled }
+    public enum RenderState { Idle, Preparing, Rendering, Finishing, Completed, Failed, Cancelled, AwaitingConfirmation }
 
     [DefaultExecutionOrder(32000)]
     public sealed class RendererController : MonoBehaviour
@@ -64,7 +65,10 @@ namespace ADOFAIRenderer.Renderer
         public long TotalFrames { get; private set; }
         public long CapturedFrames { get; private set; }
         public bool Busy => State == RenderState.Preparing || State == RenderState.Rendering || State == RenderState.Finishing
+            || State == RenderState.AwaitingConfirmation
             || rpcLoadRoutine != null;
+        internal bool EncoderFallbackPending => encoderFallbackPending;
+        internal string EncoderFallbackReason => encoderFallbackReason ?? string.Empty;
         private FrameCapture capture;
         private FFmpegEncoder encoder;
         private SavedState saved;
@@ -92,9 +96,26 @@ namespace ADOFAIRenderer.Renderer
         private long gameFrameTicks;
         private long finalizationTicks;
         private readonly ConcurrentQueue<object> rpcCommands = new ConcurrentQueue<object>();
+        private readonly ConcurrentQueue<EncoderPreflightResult> encoderPreflightResults =
+            new ConcurrentQueue<EncoderPreflightResult>();
         private Coroutine rpcLoadRoutine;
         private RpcRenderJob activeRpcJob;
         private double nextProgressUpdateAt;
+        private bool encoderFallbackPending;
+        private string encoderFallbackReason;
+        private int encoderPreflightRunning;
+
+        private sealed class EncoderPreflightResult
+        {
+            internal readonly bool Success;
+            internal readonly string Error;
+
+            internal EncoderPreflightResult(bool success, string error)
+            {
+                Success = success;
+                Error = error;
+            }
+        }
 
         private void Awake() { Instance = this; }
         public void StartRender()
@@ -117,6 +138,8 @@ namespace ADOFAIRenderer.Renderer
             ProgressText = EtaText = SpeedText = "";
             gameFrameTicks = 0;
             finalizationTicks = 0;
+            encoderFallbackPending = false;
+            encoderFallbackReason = null;
             ClearQueuedInput();
             escapeHeldAt = -1f;
             forceCancelTriggered = false;
@@ -124,7 +147,8 @@ namespace ADOFAIRenderer.Renderer
             var options = activeRpcJob != null ? activeRpcJob.Options : null;
             bgaModeForRun = options?.BgaMode ?? settings.BgaMode;
             profile = settings.ResolveProfile(options?.Preset, options?.Width, options?.Height,
-                options?.Fps, options?.BitrateMbps, options?.EndDelaySeconds);
+                options?.Fps, options?.BitrateMbps, options?.EndDelaySeconds, options?.VideoCodec,
+                options?.BitDepth);
             Clock = new RenderClock(profile.Fps);
             Message = string.Format("Preparing {0}x{1} @ {2} fps ({3} Mbps, {4})...",
                 profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec);
@@ -134,11 +158,115 @@ namespace ADOFAIRenderer.Renderer
             audioRealtimePacing = false;
             audioPacingOrigin = 0.0;
             openOutputFolderForRun = settings.OpenOutputFolder;
+            FFmpegPath = ResolveFfmpegExecutable(settings);
             activeRpcJob?.SetState(RpcJobState.Preparing);
-            ShowToast(Message, 4f);
+            Message = "Checking " + profile.FfmpegCodec + " encoder...";
+            ShowToast(Message, 4f, false);
+            BeginEncoderPreflight();
+        }
+
+        private void BeginEncoderPreflight()
+        {
+            if (Interlocked.CompareExchange(ref encoderPreflightRunning, 1, 0) != 0) return;
+            var executable = FFmpegPath;
+            var checkProfile = profile;
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var success = FFmpegEncoder.TryValidateVideo(executable, checkProfile.BitrateMbps,
+                        checkProfile.FfmpegPreset, checkProfile.FfmpegCodec, checkProfile.PixelFormat,
+                        checkProfile.ContainerExtension, !captureAudioForRun, out var error);
+                    encoderPreflightResults.Enqueue(new EncoderPreflightResult(success, error));
+                }
+                catch (Exception ex)
+                {
+                    encoderPreflightResults.Enqueue(new EncoderPreflightResult(false, ex.Message));
+                }
+            });
+        }
+
+        private void ProcessEncoderPreflight()
+        {
+            if (Interlocked.CompareExchange(ref encoderPreflightRunning, 0, 0) == 0) return;
+            if (!encoderPreflightResults.TryDequeue(out var result)) return;
+            Interlocked.Exchange(ref encoderPreflightRunning, 0);
+            if (cancellation || State != RenderState.Preparing) return;
+            if (result.Success)
+            {
+                Main.Entry.Logger.Log("Encoder preflight passed: " + profile.FfmpegCodec
+                    + " (" + profile.PixelFormat + ").");
+                StartRenderCore();
+                return;
+            }
+
+            var reason = string.IsNullOrEmpty(result.Error) ? "FFmpeg could not initialize the selected encoder." : result.Error;
+            if (VideoCodecCatalog.IsHardwareEncoder(profile.FfmpegCodec))
+            {
+                encoderFallbackPending = true;
+                encoderFallbackReason = reason;
+                State = RenderState.AwaitingConfirmation;
+                Message = "Hardware encoder failed. Use Software encoder for this render?";
+                activeRpcJob?.SetState(RpcJobState.AwaitingConfirmation, reason);
+                ShowToast(Message, 30f, false);
+                Main.Entry.Logger.Error("Hardware encoder preflight failed: " + reason);
+            }
+            else
+            {
+                State = RenderState.Failed;
+                Message = "Encoder preflight failed: " + reason;
+                activeRpcJob?.Fail(Message);
+                activeRpcJob = null;
+                ShowToast(Message, 10f, false);
+                Main.Entry.Logger.Error(Message);
+            }
+        }
+
+        private void StartRenderCore()
+        {
+            encoderFallbackPending = false;
             routine = StartCoroutine(GuardedRun());
         }
-        public void Cancel() { if (Busy) cancellation = true; }
+
+        internal void ConfirmEncoderFallback()
+        {
+            if (!encoderFallbackPending || profile == null) return;
+            var definition = VideoCodecCatalog.Get(profile.VideoCodec);
+            profile = new RenderProfile(profile.Width, profile.Height, profile.Fps, profile.BitrateMbps,
+                profile.FfmpegPreset, profile.EndDelaySeconds, definition.SoftwareEncoder,
+                profile.VideoCodec, profile.BitDepth);
+            encoderFallbackPending = false;
+            encoderFallbackReason = null;
+            State = RenderState.Preparing;
+            Message = "Checking Software encoder for this render...";
+            activeRpcJob?.SetState(RpcJobState.Preparing);
+            Main.Entry.Logger.Log("User approved one-render software fallback: " + profile.FfmpegCodec + ".");
+            ShowToast(Message, 4f, false);
+            BeginEncoderPreflight();
+        }
+
+        internal void RejectEncoderFallback()
+        {
+            if (!encoderFallbackPending) return;
+            encoderFallbackPending = false;
+            encoderFallbackReason = null;
+            State = RenderState.Cancelled;
+            Message = "Render cancelled; hardware encoder was unavailable.";
+            activeRpcJob?.Cancel();
+            activeRpcJob = null;
+            ShowToast(Message, 8f, false);
+            Main.Entry.Logger.Log(Message);
+        }
+
+        public void Cancel()
+        {
+            if (encoderFallbackPending)
+            {
+                RejectEncoderFallback();
+                return;
+            }
+            if (Busy) cancellation = true;
+        }
 
         internal void EnqueueRpcRender(RpcRenderRequest request)
         {
@@ -210,17 +338,16 @@ namespace ADOFAIRenderer.Renderer
             var directory = settings.ResolveOutputDirectory();
             Directory.CreateDirectory(directory);
             var name = SanitizeName(ADOBase.controller.levelName);
-            OutputPath = Path.Combine(directory, name + "_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6) + ".mp4");
-            partialPath = Path.ChangeExtension(OutputPath, ".partial.mp4");
+            OutputPath = Path.Combine(directory, name + "_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6) + profile.ContainerExtension);
+            partialPath = Path.ChangeExtension(OutputPath, ".partial" + profile.ContainerExtension);
             audioPath = Path.ChangeExtension(OutputPath, ".partial.wav");
-            muxPath = Path.ChangeExtension(OutputPath, ".mux.mp4");
+            muxPath = Path.ChangeExtension(OutputPath, ".mux" + profile.ContainerExtension);
             saved = new SavedState();
             PrepareAudioConfiguration();
             MaximizeRenderPerformance();
-            FFmpegPath = ResolveFfmpegExecutable(settings);
             encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
                 profile.Fps, profile.BitrateMbps, profile.FfmpegPreset, !captureAudioForRun,
-                profile.FfmpegCodec);
+                profile.FfmpegCodec, profile.PixelFormat);
             if (editor != null)
             {
                 Main.Entry.Logger.Log("Preparing editor render: playMode=" + editor.playMode
@@ -337,7 +464,7 @@ namespace ADOFAIRenderer.Renderer
             }
             State = RenderState.Finishing;
             renderTimer.Stop();
-            Message = "Finalizing MP4...";
+            Message = "Finalizing " + profile.ContainerExtension.TrimStart('.').ToUpperInvariant() + "...";
             ShowToast(Message, 8f, false);
             var finalizationStart = System.Diagnostics.Stopwatch.GetTimestamp();
             try
@@ -535,6 +662,7 @@ namespace ADOFAIRenderer.Renderer
         private void Update()
         {
             ProcessRpcCommands();
+            ProcessEncoderPreflight();
             UpdateRpcJob();
             if (Busy)
             {
@@ -566,6 +694,8 @@ namespace ADOFAIRenderer.Renderer
         private void ForceCancel()
         {
             cancellation = true;
+            encoderFallbackPending = false;
+            encoderFallbackReason = null;
             if (rpcLoadRoutine != null) { StopCoroutine(rpcLoadRoutine); rpcLoadRoutine = null; }
             if (routine != null) { StopCoroutine(routine); routine = null; }
             State = RenderState.Cancelled;
@@ -583,6 +713,11 @@ namespace ADOFAIRenderer.Renderer
             // target change can never flash through to the player window.
             if (Busy && State != RenderState.Rendering && Event.current.type == EventType.Repaint)
                 ADOFAIRenderer.UI.RendererWindow.DrawBackdrop();
+            if (EncoderFallbackPending)
+            {
+                ADOFAIRenderer.UI.RendererWindow.DrawEncoderFallbackPrompt(this);
+                return;
+            }
             if (!ToastVisible) return;
             ADOFAIRenderer.UI.RendererWindow.DrawToast(this);
         }
@@ -860,6 +995,7 @@ namespace ADOFAIRenderer.Renderer
             if (job == null) return;
             job.SetProgress(CapturedFrames, TotalFrames, OutputPath);
             if (rpcLoadRoutine != null) job.SetState(RpcJobState.Loading);
+            else if (State == RenderState.AwaitingConfirmation) job.SetState(RpcJobState.AwaitingConfirmation, EncoderFallbackReason);
             else if (State == RenderState.Preparing) job.SetState(RpcJobState.Preparing);
             else if (State == RenderState.Rendering) job.SetState(RpcJobState.Rendering);
             else if (State == RenderState.Finishing) job.SetState(RpcJobState.Finishing);
@@ -905,6 +1041,8 @@ namespace ADOFAIRenderer.Renderer
         internal void AbortWithError(Exception ex) { Fail(ex); StopAndClean(); }
         public void StopAndClean()
         {
+            encoderFallbackPending = false;
+            encoderFallbackReason = null;
             if (rpcLoadRoutine != null) { StopCoroutine(rpcLoadRoutine); rpcLoadRoutine = null; }
             if (routine != null) { StopCoroutine(routine); routine = null; }
             if (Busy) { State = RenderState.Cancelled; Message = "Render cancelled."; }

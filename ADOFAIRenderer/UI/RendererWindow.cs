@@ -64,6 +64,29 @@ namespace ADOFAIRenderer.UI
             }
         }
 
+        internal static void DrawEncoderFallbackPrompt(RendererController renderer)
+        {
+            EnsureStyles();
+            float width = Mathf.Min(760f, Screen.width - 40f);
+            float height = 230f;
+            float left = (Screen.width - width) * 0.5f;
+            float top = Mathf.Max(24f, (Screen.height - height) * 0.5f);
+            var rect = new Rect(left, top, width, height);
+            GUI.Box(rect, string.Empty);
+            var content = new Rect(rect.x + 24f, rect.y + 18f, rect.width - 48f, rect.height - 36f);
+            GUI.Label(new Rect(content.x, content.y, content.width, 24f), "ENCODER CONFIRMATION", title);
+            GUI.Label(new Rect(content.x, content.y + 34f, content.width, 38f),
+                "The selected hardware encoder could not be initialized.", message);
+            GUI.Label(new Rect(content.x, content.y + 76f, content.width, 54f),
+                renderer.EncoderFallbackReason ?? string.Empty, detail);
+            GUI.Label(new Rect(content.x, content.y + 132f, content.width, 28f),
+                "Use Software encoder for this render? Your saved encoder setting will not be changed.", detail);
+            if (GUI.Button(new Rect(content.x, content.y + 170f, 310f, 34f), "Use Software and continue"))
+                renderer.ConfirmEncoderFallback();
+            if (GUI.Button(new Rect(content.x + 326f, content.y + 170f, 160f, 34f), "Cancel render"))
+                renderer.RejectEncoderFallback();
+        }
+
         private static void EnsureStyles()
         {
             if (initialized) return;
