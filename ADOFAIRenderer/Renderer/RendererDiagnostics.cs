@@ -47,6 +47,10 @@ namespace ADOFAIRenderer.Renderer
             result.Info("ADOFAI Renderer diagnostics started at " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             result.Info("Platform: " + Application.platform + ", Unity " + Application.unityVersion);
             result.Info("Graphics: " + (SystemInfo.graphicsDeviceName ?? "unknown"));
+            result.Info("Graphics vendor: " + (SystemInfo.graphicsDeviceVendor ?? "unknown")
+                + ", API: " + SystemInfo.graphicsDeviceType
+                + ", driver: " + (SystemInfo.graphicsDeviceVersion ?? "unknown")
+                + ", memory: " + SystemInfo.graphicsMemorySize + " MB");
             result.Info("Async GPU readback: " + (SystemInfo.supportsAsyncGPUReadback ? "available" : "fallback path"));
 
             if (RendererController.Instance != null && RendererController.Instance.Busy)
@@ -64,8 +68,9 @@ namespace ADOFAIRenderer.Renderer
             try
             {
                 profile = settings.ResolveProfile();
-                result.Info(string.Format("Profile: {0}x{1} @ {2} fps, {3} Mbps, {4}",
-                    profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec));
+                result.Info(string.Format("Profile: {0}x{1} @ {2} fps, {3} Mbps, {4}, {5}, {6}",
+                    profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec,
+                    profile.PixelFormat, profile.ContainerExtension));
             }
             catch (Exception ex)
             {
@@ -74,7 +79,7 @@ namespace ADOFAIRenderer.Renderer
             }
 
             CheckOutputDirectory(settings, result);
-            CheckFfmpeg(settings, profile.FfmpegCodec, result);
+            CheckFfmpeg(settings, profile, result);
             CheckAudio(settings, result);
             return result;
         }
@@ -96,7 +101,7 @@ namespace ADOFAIRenderer.Renderer
             }
         }
 
-        private static void CheckFfmpeg(RendererSettings settings, string codec, RendererDiagnosticResult result)
+        private static void CheckFfmpeg(RendererSettings settings, RenderProfile profile, RendererDiagnosticResult result)
         {
             string executable;
             try { executable = RendererController.ResolveFfmpegExecutable(settings); }
@@ -141,14 +146,31 @@ namespace ADOFAIRenderer.Renderer
             }
 
             var encoderText = (encoders.StandardOutput ?? string.Empty) + Environment.NewLine + (encoders.StandardError ?? string.Empty);
-            if (encoderText.IndexOf(codec, StringComparison.OrdinalIgnoreCase) < 0)
+            if (encoderText.IndexOf(profile.FfmpegCodec, StringComparison.OrdinalIgnoreCase) < 0)
             {
-                result.Error("Selected video encoder is unavailable: " + codec);
+                result.Error("Selected video encoder is unavailable: " + profile.FfmpegCodec);
             }
             else
             {
-                result.Pass("Video encoder is available: " + codec);
+                result.Pass("Video encoder is available: " + profile.FfmpegCodec);
             }
+
+            if (settings.CaptureAudio)
+            {
+                var audioCodec = profile.AudioEncoder;
+                if (encoderText.IndexOf(audioCodec, StringComparison.OrdinalIgnoreCase) < 0)
+                    result.Error("Selected audio encoder is unavailable: " + audioCodec);
+                else
+                    result.Pass("Audio encoder is available: " + audioCodec);
+            }
+
+            result.Info("Container: " + profile.ContainerExtension + " (" + profile.ContainerMimeType + ").");
+            if (FFmpegEncoder.TryValidateVideo(executable, profile.BitrateMbps, profile.FfmpegPreset,
+                profile.FfmpegCodec, profile.PixelFormat, profile.ContainerExtension, !settings.CaptureAudio,
+                out var validationError))
+                result.Pass("Encoder smoke test passed: " + profile.FfmpegCodec + " / " + profile.PixelFormat + ".");
+            else
+                result.Error("Encoder smoke test failed: " + validationError);
         }
 
         private static void CheckAudio(RendererSettings settings, RendererDiagnosticResult result)
