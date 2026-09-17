@@ -6,9 +6,10 @@ name: 'ADOFAI Renderer',
 
 input: ADOFAI.CustomLevel,
 
-output: new MP4({
+output: new Video({
 resolution: RendererSettings.resolution,
-fps: RendererSettings.fps
+fps: RendererSettings.fps,
+codec: RendererSettings.videoCodec
 })
 });
 
@@ -51,18 +52,28 @@ max: 200,
 mode: 'CBR'
 },
 
+videoCodec: [
+'H264',
+'H265',
+'VP9',
+'AV1'
+],
+
 endDelay: {
 configurable: true
 },
 
 encoder: {
 auto: () =>
-GPU.vendor === 'NVIDIA' && NVENC.available
-? 'NvidiaNvenc'
+GPU.vendor === 'NVIDIA' ? 'NvidiaNvenc'
+: GPU.vendor === 'Intel' ? 'IntelQsv'
+: GPU.vendor === 'AMD' ? 'AmdAmf'
 : 'Software',
 
 ```
 NvidiaNvenc: NVENC,
+IntelQsv: QuickSync,
+AmdAmf: AMF,
 Software: libx264
 ```
 
@@ -176,6 +187,8 @@ Quality: 'Quality'
 const VideoEncoder = Object.freeze({
 Auto: 'Auto',
 NvidiaNvenc: 'NvidiaNvenc',
+IntelQsv: 'IntelQsv',
+AmdAmf: 'AmdAmf',
 Software: 'Software'
 });
 
@@ -222,6 +235,12 @@ const encoder = (() => {
 switch (settings.videoEncoder) {
 case VideoEncoder.NvidiaNvenc:
 return NVENC;
+
+case VideoEncoder.IntelQsv:
+return QuickSync;
+
+case VideoEncoder.AmdAmf:
+return AMF;
 
 ```
 case VideoEncoder.Software:

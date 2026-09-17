@@ -1,6 +1,6 @@
 # ADOFAI Renderer
 
-ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度とFPSで MP4 にレンダリングする Unity Mod Manager 用MODです。
+ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度とFPSで動画にレンダリングする Unity Mod Manager 用MODです。
 
 ## 主な機能
 
@@ -8,7 +8,8 @@ ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度と
 - 中央配置の進捗ウィンドウ、FPS、リアルタイム倍率、ETA、完了予定時刻
 - Preview、FullHD、QHD、UHD 4K、Custom プロファイル
 - 解像度、15–240 FPS、1–200 Mbps CBRビットレート、終了後の待機時間、音声、出力先を設定可能
-- NVIDIA GPUではNVENCを自動選択し、ソフトウェア `libx264` にフォールバック
+- H.264/AVC、H.265/HEVC、VP9、AV1を選択可能（VP9はWebM、それ以外はMP4）
+- NVIDIA NVENC、Intel Quick Sync、AMD AMF、ソフトウェアエンコーダを選択可能。GPUも自動検出
 - ゲーム音声のキャプチャと動画・音声のmux
 - BGA Modeではタイル、ホールド、タイルエフェクト、惑星、惑星パーティクル、ゲームプレイのヒット音を非表示
 - localhost RPC APIと、ジョブごとの `bgaMode` 上書き
@@ -43,7 +44,8 @@ A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 | Capture audio | オン | ゲーム音声をキャプチャ |
 | BGA mode | オフ | タイル、惑星、ヒット音なしでレンダリング |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
 | Output folder | `Renders` | ゲームフォルダ基準の相対パスまたは絶対パス |
 
 ### BGA Mode

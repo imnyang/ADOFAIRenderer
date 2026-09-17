@@ -1,6 +1,6 @@
 # ADOFAI Renderer
 
-ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义关卡按照指定分辨率和帧率渲染为 MP4。
+ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义关卡按照指定分辨率和帧率渲染为视频。
 
 ## 功能
 
@@ -8,7 +8,8 @@ ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义�
 - 居中的进度窗口，显示 FPS、实时倍率、ETA 和预计完成时间
 - Preview、FullHD、QHD、UHD 4K 和 Custom 配置
 - 可设置分辨率、15–240 FPS、1–200 Mbps CBR 码率、结束延迟、音频和输出目录
-- NVIDIA GPU 自动优先使用 NVENC，必要时回退到软件 `libx264`
+- 支持选择 H.264/AVC、H.265/HEVC、VP9 和 AV1（VP9 输出 WebM，其余输出 MP4）
+- 支持选择 NVIDIA NVENC、Intel Quick Sync、AMD AMF 和软件编码器，并自动检测 GPU
 - 可选的游戏音频捕获和最终音视频 mux
 - BGA Mode 隐藏瓦片、Hold、瓦片特效、星球、星球粒子以及游戏玩法击打音效
 - localhost RPC API 支持每个任务单独设置 `bgaMode`
@@ -43,7 +44,8 @@ A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 | Capture audio | 开启 | 捕获游戏音频 |
 | BGA mode | 关闭 | 不包含瓦片、星球和击打音效 |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
 | Output folder | `Renders` | 相对于游戏目录的路径或绝对路径 |
 
 ### BGA Mode

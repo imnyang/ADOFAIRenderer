@@ -1,6 +1,6 @@
 # ADOFAI Renderer
 
-ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to MP4 at a selected resolution and frame rate.
+ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to video at a selected resolution and frame rate.
 
 ## Features
 
@@ -8,7 +8,8 @@ ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to 
 - Centered progress window with FPS, realtime multiplier, ETA, and finish time.
 - Preview, FullHD, QHD, UHD 4K, and Custom profiles.
 - Configurable resolution, 15–240 FPS, 1–200 Mbps CBR bitrate, end delay, audio, and output directory.
-- Automatic NVENC selection on NVIDIA GPUs with software `libx264` fallback.
+- Selectable H.264/AVC, H.265/HEVC, VP9, and AV1 codecs (VP9 outputs WebM; the others output MP4).
+- Selectable NVIDIA NVENC, Intel Quick Sync, AMD AMF, and software backends with GPU auto-detection.
 - Optional game-audio capture and final audio/video mux.
 - BGA Mode hides tiles, holds, tile effects, planets, planet particles, and gameplay hit sounds while preserving the background, camera, decorations, and music timing.
 - Localhost RPC API with per-job `bgaMode` override.
@@ -43,9 +44,15 @@ On startup, the mod checks GitHub's latest stable release. Drafts and pre-releas
 | Capture audio | On | Capture game audio |
 | BGA mode | Off | Render without tiles, planets, or hit sounds |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
+| Video bit depth | 8-bit | 8-bit / 10-bit (`yuv420p10le`) |
 | Output folder | `Renders` | Relative to the game folder or absolute |
 | FFmpeg executable | Automatic | Auto-installed executable, PATH lookup, or an explicit path |
+
+The software AV1 encoder does not support strict CBR. Audio renders use target-bitrate VBR, while video-only renders use capped CRF.
+
+Before rendering, the selected encoder is verified with a real one-frame smoke test. If a hardware encoder fails, the renderer asks for consent before using Software for that render; declining leaves the saved setting unchanged and cancels the render.
 
 ### Diagnostics
 
@@ -53,6 +60,8 @@ Use `Run diagnostics` in the settings screen before rendering to check:
 
 - whether FFmpeg starts and which version is installed;
 - whether the selected video encoder is available;
+- whether the selected video/audio encoders and container are available;
+- whether the selected encoder passes an actual one-frame smoke test, plus GPU driver details;
 - whether the output folder can be created and written to; and
 - Unity audio output and GPU readback status.
 

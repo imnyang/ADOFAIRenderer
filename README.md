@@ -1,6 +1,6 @@
 # ADOFAI Renderer
 
-ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 MP4 렌더링하는 Unity Mod Manager 모드입니다.
+ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 영상으로 렌더링하는 Unity Mod Manager 모드입니다.
 
 ## 언어별 문서
 
@@ -19,7 +19,8 @@ ADOFAI 커스텀 레벨을 지정한 해상도와 FPS로 MP4 렌더링하는 Uni
 - 중앙 진행창, 렌더 FPS, 실시간 배율, ETA와 완료 예정 시각 표시
 - Preview, FullHD, QHD, UHD 4K, Custom 프로필
 - 해상도, 15–240 FPS, 1–200 Mbps 비트레이트, End delay 설정
-- NVIDIA GPU에서 NVENC 자동 선택, 소프트웨어 `libx264` fallback
+- H.264/AVC, H.265/HEVC, VP9, AV1 코덱 선택 지원 (VP9은 WebM, 나머지는 MP4)
+- NVIDIA NVENC, Intel Quick Sync, AMD AMF, 소프트웨어 인코더 선택 및 GPU 자동 감지
 - 게임 오디오 캡처와 영상·오디오 mux
 - 설정 가능한 출력 폴더
 - BGA Mode: 타일·홀드·타일 이펙트·공·공 파티클·힛사운드 제외
@@ -49,10 +50,16 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 | Capture audio | 켜짐 | 게임 음악/오디오 캡처 |
 | BGA mode | 꺼짐 | 타일, 공, 힛사운드 없이 렌더 |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
+| Video bit depth | 8-bit | 8-bit / 10-bit (`yuv420p10le`) |
 | Output folder | `Renders` | 게임 폴더 기준 상대 경로 또는 절대 경로 |
 | Open output folder after render | 켜짐 | 렌더 완료 후 결과 파일이 있는 폴더 열기 |
 | FFmpeg executable | 자동 | 자동 설치된 FFmpeg, PATH의 `ffmpeg`, 또는 직접 지정한 경로 |
+
+AV1 소프트웨어 인코더는 엄격한 CBR을 지원하지 않으므로 오디오 포함 렌더에서는 목표 비트레이트 VBR, 무음 렌더에서는 capped-CRF를 사용합니다.
+
+렌더 시작 전에 선택한 인코더를 실제 1프레임으로 점검합니다. 하드웨어 인코더가 실패하면 Software encoder로 이번 렌더만 계속할지 확인하며, 동의하지 않으면 설정과 렌더를 변경하지 않고 취소합니다.
 
 ### 진단
 
@@ -60,6 +67,8 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 
 - FFmpeg 실행 가능 여부와 버전
 - 선택한 비디오 인코더 지원 여부
+- 선택한 비디오·오디오 코덱과 컨테이너 지원 여부
+- 선택한 인코더의 실제 1프레임 smoke test와 GPU 드라이버 정보
 - 출력 폴더 생성 및 쓰기 권한
 - Unity 오디오 출력과 GPU readback 상태
 

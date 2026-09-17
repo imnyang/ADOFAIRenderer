@@ -1,6 +1,6 @@
 # ADOFAI Renderer
 
-O ADOFAI Renderer é um mod para Unity Mod Manager que renderiza fases personalizadas do ADOFAI em MP4 com resolução e FPS definidos.
+O ADOFAI Renderer é um mod para Unity Mod Manager que renderiza fases personalizadas do ADOFAI em vídeo com resolução e FPS definidos.
 
 ## Recursos
 
@@ -8,7 +8,8 @@ O ADOFAI Renderer é um mod para Unity Mod Manager que renderiza fases personali
 - Janela de progresso centralizada com FPS, multiplicador em tempo real, ETA e horário previsto de conclusão.
 - Perfis Preview, FullHD, QHD, UHD 4K e Custom.
 - Resolução, 15–240 FPS, bitrate CBR de 1–200 Mbps, atraso final, áudio e pasta de saída configuráveis.
-- NVENC selecionado automaticamente em GPUs NVIDIA, com fallback para `libx264`.
+- Seleção dos codecs H.264/AVC, H.265/HEVC, VP9 e AV1 (VP9 gera WebM; os demais geram MP4).
+- Seleção de NVIDIA NVENC, Intel Quick Sync, AMD AMF e software, com detecção automática da GPU.
 - Captura opcional do áudio do jogo e mux final de áudio/vídeo.
 - BGA Mode oculta tiles, holds, efeitos dos tiles, planetas, partículas dos planetas e sons de hit do gameplay.
 - RPC local com opção `bgaMode` por tarefa.
@@ -43,7 +44,8 @@ Ao iniciar, o mod verifica o lançamento estável mais recente no GitHub. O endp
 | Capture audio | Ativado | Captura o áudio do jogo |
 | BGA mode | Desativado | Renderiza sem tiles, planetas ou sons de hit |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
 | Output folder | `Renders` | Caminho relativo à pasta do jogo ou caminho absoluto |
 
 ### BGA Mode

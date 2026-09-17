@@ -2,7 +2,7 @@
 
 <div dir="rtl">
 
-ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل المراحل المخصصة في ADOFAI إلى ملفات MP4 بدقة ومعدل إطارات محددين.
+ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل المراحل المخصصة في ADOFAI إلى فيديو بدقة ومعدل إطارات محددين.
 
 ## الميزات
 
@@ -10,7 +10,8 @@ ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل ا�
 - نافذة تقدم في المنتصف تعرض FPS والسرعة النسبية وETA ووقت الانتهاء المتوقع.
 - إعدادات Preview وFullHD وQHD وUHD 4K وCustom.
 - إمكانية ضبط الدقة و15–240 FPS ومعدل البت 1–200 Mbps ووقت الانتظار النهائي والصوت ومجلد الإخراج.
-- اختيار NVENC تلقائياً على بطاقات NVIDIA مع بديل برمجي هو `libx264`.
+- اختيار H.264/AVC وH.265/HEVC وVP9 وAV1 (ينتج VP9 ملف WebM والباقي MP4).
+- إمكانية اختيار NVIDIA NVENC وIntel Quick Sync وAMD AMF والترميز البرمجي مع اكتشاف GPU تلقائياً.
 - تسجيل صوت اللعبة اختيارياً ثم دمجه مع الفيديو.
 - وضع BGA يخفي البلاطات وHold والمؤثرات والكواكب وجزيئات الكواكب وأصوات الضرب الخاصة باللعب.
 - يدعم RPC المحلي خيار `bgaMode` لكل مهمة.
@@ -45,7 +46,8 @@ A Dance of Fire and Ice/Mods/ADOFAIRenderer/
 | Capture audio | مفعّل | تسجيل صوت اللعبة |
 | BGA mode | متوقف | بدون البلاطات والكواكب وأصوات الضرب |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
-| Video encoder | Auto | Auto / NvidiaNvenc / Software |
+| Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
+| Video codec | H264 | H264 / H265 / VP9 / AV1 |
 | Output folder | `Renders` | مسار نسبي من مجلد اللعبة أو مسار مطلق |
 
 ### وضع BGA

@@ -1,6 +1,6 @@
 # ADOFAI Renderer RPC API Specification
 
-Version: `0.11.8`
+Version: `1.2.0`
 
 This document defines the localhost RPC API provided by ADOFAI Renderer. The server is disabled by default. Enable it by adding the following argument when launching ADOFAI:
 
@@ -36,7 +36,7 @@ The server binds only to the loopback address. Do not expose it through an unaut
 | `GET` | `/jobs` | List all jobs known to the current process |
 | `POST` | `/render` | Create a render job |
 | `GET` | `/render/{id}` | Read one job's status |
-| `GET` | `/render/{id}/download` | Download a completed MP4 |
+| `GET` | `/render/{id}/download` | Download a completed video |
 | `POST`, `DELETE` | `/render/{id}/cancel` | Request cancellation |
 | `OPTIONS` | `/*` | CORS preflight |
 
@@ -97,6 +97,9 @@ Exactly one of `levelPath` or the compatibility alias `path` must provide a vali
 | `targetFps` | integer | No | `15..240` | Alias for `fps` |
 | `bitrateMbps` | integer | No | `1..200` | CBR video bitrate in Mbps |
 | `bitrate` | integer | No | `1..200` | Alias for `bitrateMbps` |
+| `videoCodec` | string | No | `H264`, `H265`, `VP9`, `AV1` | Video codec; VP9 produces WebM and the others produce MP4 |
+| `codec` | string | No | Same as `videoCodec` | Compatibility alias for `videoCodec` |
+| `bitDepth` | integer | No | `8` or `10` | Output video bit depth; `10` uses `yuv420p10le` |
 | `endDelaySeconds` | number | No | `0..30` | Delay after the music/final-tile end time |
 | `captureAudio` | boolean | No | `true` / `false` | Capture game audio |
 | `audio` | boolean | No | `true` / `false` | Alias for `captureAudio` |
@@ -105,6 +108,10 @@ Exactly one of `levelPath` or the compatibility alias `path` must provide a vali
 Omitted options use the Unity Mod Manager settings. If `bgaMode` is omitted, the configured BGA Mode setting is used.
 
 If both `fps` and `targetFps` are supplied, they must match. The same applies to `bitrateMbps` and `bitrate`. When both audio fields are supplied, `captureAudio` takes precedence. Supplying video overrides without `preset` uses the Custom profile.
+
+H.264, H.265, and AV1 outputs use MP4 with AAC audio. VP9 outputs WebM with Opus audio. The selected codec must be present in the configured FFmpeg build. Software AV1 uses target-bitrate VBR when audio is included and capped CRF for video-only renders because SVT-AV1 does not support strict CBR.
+
+The encoder setting selects NVIDIA NVENC, Intel Quick Sync (`*_qsv`), AMD AMF (`*_amf`), or software encoding where the selected codec has a matching backend. VP9 has no matching NVENC/QSV/AMF encoder in this profile and uses `libvpx-vp9`.
 
 ### Accepted response: `202 Accepted`
 
@@ -165,10 +172,11 @@ queued → loading → preparing → rendering → finishing → completed
 | --- | --- |
 | `queued` | Accepted by RPC and waiting for game processing |
 | `loading` | Loading the level editor and level file |
-| `preparing` | Preparing the camera, audio, FFmpeg, and render state |
+| `preparing` | Preparing the camera, audio, FFmpeg, encoder smoke test, and render state |
 | `rendering` | Generating video frames |
 | `finishing` | Draining readbacks, finalizing FFmpeg, and muxing audio |
-| `completed` | The final MP4 is ready |
+| `awaitingconfirmation` | Hardware encoder failed its smoke test and is waiting for user approval to use Software for this render |
+| `completed` | The final selected video is ready |
 | `failed` | The job ended with an error; `error` contains the message |
 | `cancelled` | The job was cancelled by the user or force-cancelled |
 
@@ -215,7 +223,7 @@ GET /render/{id}/download HTTP/1.1
 Host: 127.0.0.1:1108
 ```
 
-For a completed job, the server returns the MP4 with `Content-Type: video/mp4` and an attachment `Content-Disposition`. A render cannot be downloaded before it completes.
+For a completed job, the server returns the selected video with `Content-Type: video/mp4` or `video/webm` and an attachment `Content-Disposition`. A render cannot be downloaded before it completes.
 
 | Situation | Status |
 | --- | ---: |
