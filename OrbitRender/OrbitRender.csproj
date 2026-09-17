@@ -1,0 +1,43 @@
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+ <PropertyGroup>
+  <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+  <ProjectGuid>{6D295B50-05F2-474C-BC70-B38B0FC0A3FF}</ProjectGuid>
+  <OutputType>Library</OutputType><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><LangVersion>latest</LangVersion>
+  <AssemblyName>OrbitRender</AssemblyName><RootNamespace>OrbitRender</RootNamespace>
+  <OutputPath>bin/$(Configuration)/</OutputPath><Optimize>true</Optimize>
+  <TargetFrameworkRootPath Condition="Exists('../packages/net48/build/.NETFramework/v4.8')">$(MSBuildProjectDirectory)/../packages/net48/build/</TargetFrameworkRootPath>
+  <GameDir Condition="'$(GameDir)' == '' and '$(OS)' == 'Windows_NT'">L:/SteamLibrary/steamapps/common/A Dance of Fire and Ice</GameDir>
+  <ManagedDir>$(GameDir)/A Dance of Fire and Ice_Data/Managed</ManagedDir>
+  <ModManagerDir Condition="'$(ModManagerDir)' == ''">$(ManagedDir)/UnityModManager</ModManagerDir>
+  <FrameworkPathOverride Condition="Exists('../packages/net48/build/.NETFramework/v4.8')">$(MSBuildProjectDirectory)/../packages/net48/build/.NETFramework/v4.8</FrameworkPathOverride>
+ </PropertyGroup>
+ <ItemGroup>
+  <Reference Include="System"/><Reference Include="System.Core"/>
+  <Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/>
+  <Reference Include="$(ManagedDir)/netstandard.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/UnityEngine*.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/Unity.Collections.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/Assembly-CSharp.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/Assembly-CSharp-firstpass.dll"><Private>false</Private></Reference>
+  <Reference Include="UnityFileDialog">
+   <HintPath Condition="Exists('$(ManagedDir)/UnityFileDialog.dll')">$(ManagedDir)/UnityFileDialog.dll</HintPath>
+   <Private>false</Private>
+  </Reference>
+  <Reference Include="$(ManagedDir)/RDTools.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/DOTween.dll"><Private>false</Private></Reference>
+  <Reference Include="$(ManagedDir)/Newtonsoft.Json.dll"><Private>false</Private></Reference>
+  <Reference Include="UnityModManager">
+   <HintPath Condition="Exists('$(ModManagerDir)/UnityModManager.dll')">$(ModManagerDir)/UnityModManager.dll</HintPath>
+   <HintPath Condition="!Exists('$(ModManagerDir)/UnityModManager.dll')">../packages/UnityModManager/lib/net35/UnityModManager.dll</HintPath><Private>false</Private>
+  </Reference>
+  <Reference Include="0Harmony">
+   <HintPath Condition="Exists('$(ModManagerDir)/0Harmony.dll')">$(ModManagerDir)/0Harmony.dll</HintPath>
+   <HintPath Condition="!Exists('$(ModManagerDir)/0Harmony.dll')">../packages/0Harmony.dll</HintPath><Private>false</Private>
+  </Reference>
+ <Compile Include="**/*.cs" Exclude="obj/**;bin/**"/>
+ <Content Include="Info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+ <Content Include="LICENSE.md"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+ </ItemGroup>
+ <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets"/>
+</Project>

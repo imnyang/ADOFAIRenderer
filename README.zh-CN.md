@@ -1,6 +1,6 @@
-# ADOFAI Renderer
+# OrbitRender
 
-ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义关卡按照指定分辨率和帧率渲染为视频。
+OrbitRender 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义关卡按照指定分辨率和帧率渲染为视频。
 
 ## 功能
 
@@ -19,10 +19,10 @@ ADOFAI Renderer 是一个 Unity Mod Manager 模组，可以将 ADOFAI 自定义�
 下载模组后，请将它整齐地放入游戏的 `Mods` 目录：
 
 ```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
+A Dance of Fire and Ice/Mods/OrbitRender/
 ```
 
-请将 `ADOFAIRenderer.dll` 和 `Info.json` 放入模组目录。首次启动时，模组会把当前平台的 FFmpeg 自动下载到 `FFmpeg/<platform>/`；已有安装或 `FFmpeg executable` 中指定的路径会优先使用。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
+请将 `OrbitRender.dll` 和 `Info.json` 放入模组目录。首次启动时，模组会把当前平台的 FFmpeg 自动下载到 `FFmpeg/<platform>/`；已有安装或 `FFmpeg executable` 中指定的路径会优先使用。在 Unity Mod Manager 中启用模组，打开自定义关卡，完成设置后按 `F6`。
 
 只要平台提供兼容的 ADOFAI 和 Unity Mod Manager 环境，Windows、macOS 和 Linux 都可以运行。
 
@@ -88,4 +88,4 @@ console.log(job);
 
 ## 许可证
 
-项目代码使用 [ADOFAIRenderer/LICENSE.md](ADOFAIRenderer/LICENSE.md) 中的 MIT License。ADOFAI、Unity、Unity Mod Manager 和 FFmpeg 遵循各自的许可证。
+项目代码使用 [OrbitRender/LICENSE.md](OrbitRender/LICENSE.md) 中的 MIT License。ADOFAI、Unity、Unity Mod Manager 和 FFmpeg 遵循各自的许可证。

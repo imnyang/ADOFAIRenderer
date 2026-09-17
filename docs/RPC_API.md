@@ -1,8 +1,8 @@
-# ADOFAI Renderer RPC API Specification
+# OrbitRender RPC API Specification
 
 Version: `1.2.0`
 
-This document defines the localhost RPC API provided by ADOFAI Renderer. The server is disabled by default. Enable it by adding the following argument when launching ADOFAI:
+This document defines the localhost RPC API provided by OrbitRender. The server is disabled by default. Enable it by adding the following argument when launching ADOFAI:
 
 ```text
 --renderer-rpc

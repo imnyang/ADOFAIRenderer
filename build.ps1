@@ -10,7 +10,7 @@ Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
 
 # Build dependencies remain local and ignored. No game DLL or FFmpeg binary
-# is redistributed; FFmpeg is installed by the mod on first launch.
+# is redistributed; FFmpeg is installed by the mod after first-launch consent.
 function Get-Package([string]$Id, [string]$Version, [string]$Destination, [string]$Expected) {
     if (Test-Path -LiteralPath (Join-Path $Destination $Expected)) { return }
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
@@ -37,12 +37,12 @@ if (!$MSBuildPath) {
 }
 if (!$MSBuildPath -or !(Test-Path -LiteralPath $MSBuildPath)) { throw 'Pass -MSBuildPath with Visual Studio or Rider MSBuild.exe.' }
 if (!(Test-Path -LiteralPath "$GameDir/A Dance of Fire and Ice_Data/Managed/Assembly-CSharp.dll")) { throw 'Pass -GameDir with your ADOFAI installation.' }
-& $MSBuildPath ADOFAIRenderer.sln /t:Rebuild /p:Configuration=Release "/p:GameDir=$GameDir" /v:minimal /nologo
+& $MSBuildPath OrbitRender.sln /t:Rebuild /p:Configuration=Release "/p:GameDir=$GameDir" /v:minimal /nologo
 if ($LASTEXITCODE -ne 0) { throw 'Mod build failed.' }
 
 # Remove FFmpeg artifacts produced by older versions of this build script.
 # The exact Release/FFmpeg directory is generated output, not user data.
-$releaseDirectory = Join-Path $PSScriptRoot 'ADOFAIRenderer/bin/Release'
+$releaseDirectory = Join-Path $PSScriptRoot 'OrbitRender/bin/Release'
 $oldFfmpegDirectory = Join-Path $releaseDirectory 'FFmpeg'
 if (Test-Path -LiteralPath $oldFfmpegDirectory -PathType Container) {
     Remove-Item -LiteralPath $oldFfmpegDirectory -Recurse -Force
@@ -55,9 +55,9 @@ foreach ($staleName in @('ffmpeg.exe', 'ffprobe.exe', 'ffmpeg', 'ffprobe', 'FFmp
 if ($Test) {
     & $MSBuildPath Tests/RendererTests.csproj /t:Rebuild /v:minimal /nologo
     if ($LASTEXITCODE -ne 0) { throw 'Test build failed.' }
-    $testOutput = Join-Path $env:TEMP ('adofai-render-tests-' + [guid]::NewGuid().ToString('N'))
+    $testOutput = Join-Path $env:TEMP ('orbit-render-tests-' + [guid]::NewGuid().ToString('N'))
     & ./Tests/bin/Release/RendererTests.exe $FfmpegPath $testOutput
     if ($LASTEXITCODE -ne 0) { throw 'Renderer tests failed.' }
     Write-Host "Test videos: $testOutput"
 }
-Write-Host "Mod output: $PSScriptRoot/ADOFAIRenderer/bin/Release"
+Write-Host "Mod output: $PSScriptRoot/OrbitRender/bin/Release"

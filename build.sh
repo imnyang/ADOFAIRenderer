@@ -40,7 +40,7 @@ else
 fi
 
 cd "$ROOT_DIR"
-"${MSBUILD_COMMAND[@]}" ADOFAIRenderer.sln \
+"${MSBUILD_COMMAND[@]}" OrbitRender.sln \
   /t:Rebuild \
   /p:Configuration=Release \
   "/p:GameDir=$GAME_DIR" \
@@ -48,7 +48,7 @@ cd "$ROOT_DIR"
 
 # Remove FFmpeg artifacts produced by older versions of this build script.
 # The exact Release/FFmpeg directory is generated output, not user data.
-RELEASE_ROOT="$ROOT_DIR/ADOFAIRenderer/bin/Release"
+RELEASE_ROOT="$ROOT_DIR/OrbitRender/bin/Release"
 if [[ -d "$RELEASE_ROOT/FFmpeg" ]]; then
   rm -rf "$RELEASE_ROOT/FFmpeg"
 fi
@@ -58,6 +58,6 @@ for stale_name in ffmpeg ffmpeg.exe ffprobe ffprobe.exe FFmpeg-LICENSE.txt FFmpe
   fi
 done
 
-echo "Mod output: $ROOT_DIR/ADOFAIRenderer/bin/Release"
-echo "FFmpeg will be downloaded by the mod on first launch."
+echo "Mod output: $ROOT_DIR/OrbitRender/bin/Release"
+echo "FFmpeg will be downloaded by the mod after first-launch consent."
 echo "Install the output folder under the game's Mods directory."

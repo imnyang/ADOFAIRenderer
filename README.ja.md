@@ -1,6 +1,6 @@
-# ADOFAI Renderer
+# OrbitRender
 
-ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度とFPSで動画にレンダリングする Unity Mod Manager 用MODです。
+OrbitRender は、ADOFAI のカスタムレベルを指定した解像度とFPSで動画にレンダリングする Unity Mod Manager 用MODです。
 
 ## 主な機能
 
@@ -19,10 +19,10 @@ ADOFAI Renderer は、ADOFAI のカスタムレベルを指定した解像度と
 ダウンロードしたMODをゲームの `Mods` フォルダに配置します。
 
 ```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
+A Dance of Fire and Ice/Mods/OrbitRender/
 ```
 
-`ADOFAIRenderer.dll` と `Info.json` をModフォルダに置いてください。初回起動時に、現在のプラットフォーム用FFmpegが `FFmpeg/<platform>/` に自動ダウンロードされます。既存のインストールや `FFmpeg executable` 設定のパスはそのまま使用します。Unity Mod Managerで有効化し、カスタムレベルを開いて設定後、`F6`を押します。
+`OrbitRender.dll` と `Info.json` をModフォルダに置いてください。初回起動時に、現在のプラットフォーム用FFmpegが `FFmpeg/<platform>/` に自動ダウンロードされます。既存のインストールや `FFmpeg executable` 設定のパスはそのまま使用します。Unity Mod Managerで有効化し、カスタムレベルを開いて設定後、`F6`を押します。
 
 対応環境は、互換性のあるADOFAIとUnity Mod Managerが利用できるWindows、macOS、Linuxです。
 
@@ -87,4 +87,4 @@ console.log(job);
 
 ## ライセンス
 
-プロジェクトコードは [ADOFAIRenderer/LICENSE.md](ADOFAIRenderer/LICENSE.md) のMIT Licenseです。ADOFAI、Unity、Unity Mod Manager、FFmpegにはそれぞれのライセンスが適用されます。
+プロジェクトコードは [OrbitRender/LICENSE.md](OrbitRender/LICENSE.md) のMIT Licenseです。ADOFAI、Unity、Unity Mod Manager、FFmpegにはそれぞれのライセンスが適用されます。

@@ -1,10 +1,11 @@
-# ADOFAI Renderer
+# OrbitRender
 
-ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to video at a selected resolution and frame rate.
+OrbitRender is a Unity Mod Manager mod that renders ADOFAI custom levels to video at a selected resolution and frame rate.
 
 ## Features
 
-- Press `F6` to render the currently opened custom level.
+- Use the editor's `Export Video` file-menu action or press `F6` to render the currently opened custom level.
+- Configure resolution, FPS, bitrate, audio, BGA, codec, and encoder in a dialog before each export.
 - Centered progress window with FPS, realtime multiplier, ETA, and finish time.
 - Preview, FullHD, QHD, UHD 4K, and Custom profiles.
 - Configurable resolution, 15–240 FPS, 1–200 Mbps CBR bitrate, end delay, audio, and output directory.
@@ -19,14 +20,14 @@ ADOFAI Renderer is a Unity Mod Manager mod that renders ADOFAI custom levels to 
 After downloading the mod, place it neatly in the game's `Mods` directory:
 
 ```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
+A Dance of Fire and Ice/Mods/OrbitRender/
 ```
 
-Install `ADOFAIRenderer.dll` and `Info.json` in the mod folder. On first launch with an internet connection, the mod downloads the FFmpeg binary for the current platform into `FFmpeg/<platform>`; existing installations or an explicit `FFmpeg executable` setting are respected. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
+Install `OrbitRender.dll` and `Info.json` in the mod folder. If FFmpeg is missing, the mod asks for confirmation on first launch and downloads the current platform's binary into `FFmpeg/<platform>` only after approval; existing installations or an explicit `FFmpeg executable` setting are respected without prompting. Enable the mod in Unity Mod Manager, open a custom level, configure the settings, and press `F6`.
 
 Runtime support is intended for Windows, macOS, and Linux when the platform has a compatible ADOFAI and Unity Mod Manager environment. Windows uses `ffmpeg.exe`; macOS/Linux use an executable `ffmpeg` available on PATH or selected in the `FFmpeg executable` setting.
 
-The build output does not contain FFmpeg. When the mod runs, it automatically selects and downloads one binary: `windows-x64`, `linux-x64`, `macos-x64`, or `macos-arm64` for Apple Silicon.
+The build output does not contain FFmpeg. After you approve the install, the mod automatically selects and downloads one binary: `windows-x64`, `linux-x64`, `macos-x64`, or `macos-arm64` for Apple Silicon.
 
 ## Automatic updates
 
@@ -48,7 +49,7 @@ On startup, the mod checks GitHub's latest stable release. Drafts and pre-releas
 | Video codec | H264 | H264 / H265 / VP9 / AV1 |
 | Video bit depth | 8-bit | 8-bit / 10-bit (`yuv420p10le`) |
 | Output folder | `Renders` | Relative to the game folder or absolute |
-| FFmpeg executable | Automatic | Auto-installed executable, PATH lookup, or an explicit path |
+| FFmpeg executable | Automatic | User-approved install, PATH lookup, or an explicit path |
 
 The software AV1 encoder does not support strict CBR. Audio renders use target-bitrate VBR, while video-only renders use capped CRF.
 
@@ -119,4 +120,4 @@ Use `-GameDir`/`GAME_DIR` for a non-default installation and `-MSBuildPath`/`MSB
 
 ## License
 
-Project code is MIT licensed in [ADOFAIRenderer/LICENSE.md](ADOFAIRenderer/LICENSE.md). ADOFAI, Unity, Unity Mod Manager, and FFmpeg remain under their respective licenses.
+Project code is MIT licensed in [OrbitRender/LICENSE.md](OrbitRender/LICENSE.md). ADOFAI, Unity, Unity Mod Manager, and FFmpeg remain under their respective licenses.

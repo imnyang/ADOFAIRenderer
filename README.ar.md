@@ -1,8 +1,8 @@
-# ADOFAI Renderer
+# OrbitRender
 
 <div dir="rtl">
 
-ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل المراحل المخصصة في ADOFAI إلى فيديو بدقة ومعدل إطارات محددين.
+OrbitRender هو تعديل يعمل مع Unity Mod Manager لتحويل المراحل المخصصة في ADOFAI إلى فيديو بدقة ومعدل إطارات محددين.
 
 ## الميزات
 
@@ -21,10 +21,10 @@ ADOFAI Renderer هو تعديل يعمل مع Unity Mod Manager لتحويل ا�
 بعد تنزيل التعديل، ضعه بشكل مرتب داخل مجلد `Mods` الخاص باللعبة:
 
 ```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
+A Dance of Fire and Ice/Mods/OrbitRender/
 ```
 
-ضع `ADOFAIRenderer.dll` و`Info.json` في مجلد التعديل. عند التشغيل لأول مرة، ينزّل التعديل تلقائياً ملف FFmpeg المناسب للمنصة إلى `FFmpeg/<platform>/`، مع احترام أي تثبيت موجود أو مسار محدد في إعداد `FFmpeg executable`. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
+ضع `OrbitRender.dll` و`Info.json` في مجلد التعديل. عند التشغيل لأول مرة، ينزّل التعديل تلقائياً ملف FFmpeg المناسب للمنصة إلى `FFmpeg/<platform>/`، مع احترام أي تثبيت موجود أو مسار محدد في إعداد `FFmpeg executable`. فعّل التعديل من Unity Mod Manager، وافتح مرحلة مخصصة، واضبط الإعدادات، ثم اضغط `F6`.
 
 يدعم التشغيل Windows وmacOS وLinux عندما تتوفر نسخة متوافقة من ADOFAI وUnity Mod Manager.
 
@@ -89,6 +89,6 @@ console.log(job);
 
 ## الترخيص
 
-كود المشروع مرخص بموجب MIT License في [ADOFAIRenderer/LICENSE.md](ADOFAIRenderer/LICENSE.md)، بينما تخضع ADOFAI وUnity وUnity Mod Manager وFFmpeg لتراخيصها الخاصة.
+كود المشروع مرخص بموجب MIT License في [OrbitRender/LICENSE.md](OrbitRender/LICENSE.md)، بينما تخضع ADOFAI وUnity وUnity Mod Manager وFFmpeg لتراخيصها الخاصة.
 
 </div>

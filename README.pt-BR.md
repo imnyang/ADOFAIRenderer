@@ -1,6 +1,6 @@
-# ADOFAI Renderer
+# OrbitRender
 
-O ADOFAI Renderer é um mod para Unity Mod Manager que renderiza fases personalizadas do ADOFAI em vídeo com resolução e FPS definidos.
+O OrbitRender é um mod para Unity Mod Manager que renderiza fases personalizadas do ADOFAI em vídeo com resolução e FPS definidos.
 
 ## Recursos
 
@@ -19,10 +19,10 @@ O ADOFAI Renderer é um mod para Unity Mod Manager que renderiza fases personali
 Depois de baixar o mod, coloque-o corretamente na pasta `Mods` do jogo:
 
 ```text
-A Dance of Fire and Ice/Mods/ADOFAIRenderer/
+A Dance of Fire and Ice/Mods/OrbitRender/
 ```
 
-Coloque `ADOFAIRenderer.dll` e `Info.json` na pasta do mod. Na primeira execução, o mod baixa automaticamente o FFmpeg da plataforma atual para `FFmpeg/<platform>/`; uma instalação existente ou um caminho definido em `FFmpeg executable` será respeitado. Ative o mod no Unity Mod Manager, abra uma fase personalizada, configure as opções e pressione `F6`.
+Coloque `OrbitRender.dll` e `Info.json` na pasta do mod. Na primeira execução, o mod baixa automaticamente o FFmpeg da plataforma atual para `FFmpeg/<platform>/`; uma instalação existente ou um caminho definido em `FFmpeg executable` será respeitado. Ative o mod no Unity Mod Manager, abra uma fase personalizada, configure as opções e pressione `F6`.
 
 O runtime suporta Windows, macOS e Linux quando houver uma instalação compatível do ADOFAI e do Unity Mod Manager.
 
@@ -87,4 +87,4 @@ Use `-GameDir` para uma instalação do jogo fora do caminho padrão e `-MSBuild
 
 ## Licença
 
-O código do projeto usa a licença MIT em [ADOFAIRenderer/LICENSE.md](ADOFAIRenderer/LICENSE.md). ADOFAI, Unity, Unity Mod Manager e FFmpeg permanecem sob suas próprias licenças.
+O código do projeto usa a licença MIT em [OrbitRender/LICENSE.md](OrbitRender/LICENSE.md). ADOFAI, Unity, Unity Mod Manager e FFmpeg permanecem sob suas próprias licenças.

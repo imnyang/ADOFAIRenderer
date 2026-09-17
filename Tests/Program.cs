@@ -3,8 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ADOFAIRenderer;
-using ADOFAIRenderer.Renderer;
+using OrbitRender;
+using OrbitRender.Renderer;
 
 internal static class Program
 {

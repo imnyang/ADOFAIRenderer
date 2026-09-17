@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ADOFAIRenderer = new UnityModManager.Mod({
-name: 'ADOFAI Renderer',
+const OrbitRender = new UnityModManager.Mod({
+name: 'OrbitRender',
 
 input: ADOFAI.CustomLevel,
 
@@ -13,10 +13,10 @@ codec: RendererSettings.videoCodec
 })
 });
 
-ADOFAIRenderer.features = {
+OrbitRender.features = {
 renderCurrentLevel: {
 trigger: Keyboard.F6,
-run: () => ADOFAIRenderer.render(ADOFAI.currentCustomLevel)
+run: () => OrbitRender.render(ADOFAI.currentCustomLevel)
 },
 
 progress: new ProgressWindow({
@@ -107,7 +107,7 @@ jobOverrides: [
 
 Keyboard.on('F6', async () => {
 if (ADOFAI.currentCustomLevel) {
-await ADOFAIRenderer.render(ADOFAI.currentCustomLevel);
+await OrbitRender.render(ADOFAI.currentCustomLevel);
 }
 });
 
@@ -117,7 +117,7 @@ const release = './Release';
 const destination = path.join(
 ADOFAI.gameDirectory,
 'Mods',
-'ADOFAIRenderer'
+'OrbitRender'
 );
 
 fs.mkdirSync(destination, {
@@ -129,7 +129,7 @@ recursive: true
 });
 
 const requiredFiles = [
-'ADOFAIRenderer.dll',
+'OrbitRender.dll',
 'Info.json'
 ];
 
@@ -139,7 +139,7 @@ throw new Error(`MissingRequiredFile:${file}`);
 }
 });
 
-UnityModManager.enable('ADOFAIRenderer');
+UnityModManager.enable('OrbitRender');
 
 return {
 open: level => ADOFAI.open(level),
@@ -305,7 +305,7 @@ Scene.holds,
   ADOFAI.music.timing.preserve();
 }
 
-const video = await ADOFAIRenderer.render(level, {
+const video = await OrbitRender.render(level, {
   width: settings.width,
   height: settings.height,
 
@@ -377,7 +377,7 @@ levelPath,
     settings.bgaMode
 } = await request.json();
 
-const job = await ADOFAIRenderer.createJob({
+const job = await OrbitRender.createJob({
   levelPath,
   preset,
   bitrateMbps,
@@ -575,9 +575,9 @@ videoDuration
 };
 
 const licenses = {
-ADOFAIRenderer: {
+OrbitRender: {
 license: 'MIT',
-file: './ADOFAIRenderer/LICENSE.md'
+file: './OrbitRender/LICENSE.md'
 },
 
 ADOFAI:
@@ -598,11 +598,11 @@ license => license.apply?.()
 );
 
 export {
-ADOFAIRenderer,
+OrbitRender,
 settings,
 install,
 renderWithBGAMode,
 tests
 };
 
-export default ADOFAIRenderer;
+export default OrbitRender;
