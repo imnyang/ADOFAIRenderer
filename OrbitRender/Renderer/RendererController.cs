@@ -452,7 +452,12 @@ namespace OrbitRender.Renderer
             // Every output frame follows one complete game Update/LateUpdate/render.
             while (true)
             {
-                yield return WaitForAudioFrame();
+                // Realtime audio fallbacks may need wall-clock pacing, but the
+                // wait must not yield extra Unity frames. Each yielded frame
+                // advances normal DOTween animations even while the renderer's
+                // song clock is fixed, making track and camera moves finish
+                // before their intended beat.
+                WaitForAudioFrame();
                 var gameFrameStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 yield return null;
                 yield return EndOfFrame;
@@ -468,6 +473,10 @@ namespace OrbitRender.Renderer
                     if (audio.NeedsRealtimePacing && !audioRealtimePacing)
                     {
                         audioRealtimePacing = true;
+                        // Preparation and the first capture can take arbitrary
+                        // wall time. Anchor pacing at the frame where the live
+                        // audio fallback actually becomes necessary.
+                        audioPacingOrigin = Time.realtimeSinceStartupAsDouble - Clock.Time;
                         Main.Entry.Logger.Log("Unity AudioRenderer returned no samples; pacing the render to realtime for the AudioListener fallback.");
                     }
                 }
@@ -1148,12 +1157,21 @@ namespace OrbitRender.Renderer
                 UnityEngine.Rendering.OnDemandRendering.renderFrameInterval = 1;
         }
 
-        private IEnumerator WaitForAudioFrame()
+        private void WaitForAudioFrame()
         {
-            if (!captureAudioForRun || !audioRealtimePacing || audioPacingOrigin <= 0.0) yield break;
+            if (!captureAudioForRun || !audioRealtimePacing || audioPacingOrigin <= 0.0) return;
             var target = audioPacingOrigin + Clock.Time;
-            while (!cancellation && Time.realtimeSinceStartupAsDouble + 0.002 < target)
-                yield return null;
+            while (!cancellation)
+            {
+                // Leave a small margin for the game frame itself. Sleeping
+                // blocks only the main-thread simulation; Unity's audio thread
+                // continues producing samples for the fallback capture.
+                var remaining = target - Time.realtimeSinceStartupAsDouble - 0.002;
+                if (remaining <= 0.0) break;
+                var milliseconds = (int)Math.Floor(remaining * 1000.0);
+                if (milliseconds > 0) System.Threading.Thread.Sleep(milliseconds);
+                else System.Threading.Thread.Yield();
+            }
         }
         private void Fail(Exception ex)
         {
