@@ -30,8 +30,11 @@ namespace OrbitRender.Renderer
                 || Instance.State == RenderState.Finishing);
         public RenderState State { get; private set; }
         public RenderClock Clock { get; private set; } = new RenderClock();
-        public string Message { get; private set; } = "Open a Custom Level, then Render.";
-        public string ToastText { get; private set; } = "Open a Custom Level, then press F6 to render.";
+        public string Message { get; private set; } = Localization.Text(
+            "Open a Custom Level, then Render.", "커스텀 레벨을 연 후 렌더를 실행하세요.");
+        public string ToastText { get; private set; } = Localization.Text(
+            "Open a Custom Level, then press F6 to render.",
+            "커스텀 레벨을 연 후 F6을 눌러 렌더를 실행하세요.");
         public string ProgressText { get; private set; } = "";
         public string EtaText { get; private set; } = "";
         public string SpeedText { get; private set; } = "";
@@ -142,7 +145,9 @@ namespace OrbitRender.Renderer
             }
             if (FfmpegInstaller.IsAwaitingConsent)
             {
-                Message = "FFmpeg installation requires your confirmation before rendering.";
+                Message = Localization.Text(
+                    "FFmpeg installation requires your confirmation before rendering.",
+                    "렌더를 시작하려면 FFmpeg 설치를 먼저 확인해야 합니다.");
                 activeRpcJob?.Fail(Message);
                 activeRpcJob = null;
                 ShowToast(Message, 8f, false);
@@ -188,7 +193,9 @@ namespace OrbitRender.Renderer
                 requestOptions?.Encoding,
                 requestOptions?.Encoder);
             Clock = new RenderClock(profile.Fps);
-            Message = string.Format("Preparing {0}x{1} @ {2} fps ({3} Mbps, {4})...",
+            Message = Localization.FormatWithCurrentCulture(
+                "Preparing {0}x{1} @ {2} fps ({3} Mbps, {4})...",
+                "{0}x{1} @ {2} fps 준비 중 ({3} Mbps, {4})...",
                 profile.Width, profile.Height, profile.Fps, profile.BitrateMbps, profile.FfmpegCodec);
             captureAudioForRun = activeRpcJob != null
                 ? activeRpcJob.CaptureAudio
@@ -198,7 +205,8 @@ namespace OrbitRender.Renderer
             openOutputFolderForRun = requestOptions?.OpenOutputFolder ?? settings.OpenOutputFolder;
             FFmpegPath = ResolveFfmpegExecutable(settings);
             activeRpcJob?.SetState(RpcJobState.Preparing);
-            Message = "Checking " + profile.FfmpegCodec + " encoder...";
+            Message = Localization.Format("Checking {0} encoder...", "{0} 인코더 확인 중...",
+                profile.FfmpegCodec);
             ShowToast(Message, 4f, false);
             BeginEncoderPreflight();
         }
@@ -238,13 +246,17 @@ namespace OrbitRender.Renderer
                 return;
             }
 
-            var reason = string.IsNullOrEmpty(result.Error) ? "FFmpeg could not initialize the selected encoder." : result.Error;
+            var reason = string.IsNullOrEmpty(result.Error)
+                ? Localization.Text("FFmpeg could not initialize the selected encoder.",
+                    "FFmpeg가 선택한 인코더를 초기화하지 못했습니다.")
+                : result.Error;
             if (VideoCodecCatalog.IsHardwareEncoder(profile.FfmpegCodec))
             {
                 encoderFallbackPending = true;
                 encoderFallbackReason = reason;
                 State = RenderState.AwaitingConfirmation;
-                Message = "Hardware encoder failed. Use Software encoder for this render?";
+                Message = Localization.Text("Hardware encoder failed. Use Software encoder for this render?",
+                    "하드웨어 인코더가 실패했습니다. 이번 렌더에 소프트웨어 인코더를 사용할까요?");
                 activeRpcJob?.SetState(RpcJobState.AwaitingConfirmation, reason);
                 ShowToast(Message, 30f, false);
                 Main.Entry.Logger.Error("Hardware encoder preflight failed: " + reason);
@@ -252,7 +264,8 @@ namespace OrbitRender.Renderer
             else
             {
                 State = RenderState.Failed;
-                Message = "Encoder preflight failed: " + reason;
+                Message = Localization.Format("Encoder preflight failed: {0}",
+                    "인코더 사전 검사가 실패했습니다: {0}", reason);
                 activeRpcJob?.Fail(Message);
                 activeRpcJob = null;
                 ShowToast(Message, 10f, false);
@@ -276,7 +289,8 @@ namespace OrbitRender.Renderer
             encoderFallbackPending = false;
             encoderFallbackReason = null;
             State = RenderState.Preparing;
-            Message = "Checking Software encoder for this render...";
+            Message = Localization.Text("Checking Software encoder for this render...",
+                "이번 렌더에 사용할 소프트웨어 인코더를 확인 중...");
             activeRpcJob?.SetState(RpcJobState.Preparing);
             Main.Entry.Logger.Log("User approved one-render software fallback: " + profile.FfmpegCodec + ".");
             ShowToast(Message, 4f, false);
@@ -289,7 +303,8 @@ namespace OrbitRender.Renderer
             encoderFallbackPending = false;
             encoderFallbackReason = null;
             State = RenderState.Cancelled;
-            Message = "Render cancelled; hardware encoder was unavailable.";
+            Message = Localization.Text("Render cancelled; hardware encoder was unavailable.",
+                "렌더를 취소했습니다. 하드웨어 인코더를 사용할 수 없습니다.");
             activeRpcJob?.Cancel();
             activeRpcJob = null;
             ShowToast(Message, 8f, false);
@@ -337,13 +352,21 @@ namespace OrbitRender.Renderer
         {
             if (TotalFrames <= 0) return;
             var progress = 100.0 * CapturedFrames / TotalFrames;
-            ProgressText = string.Format("{0:F1}%   {1} / {2} frames   {3:F1} fps",
+            ProgressText = Localization.FormatWithCurrentCulture(
+                "{0:F1}%   {1} / {2} frames   {3:F1} fps",
+                "{0:F1}%   {1} / {2} 프레임   {3:F1} fps",
                 progress, CapturedFrames, TotalFrames, GenerationFps);
-            EtaText = string.Format("ETA {0}   •   finishes around {1}",
+            EtaText = Localization.FormatWithCurrentCulture(
+                "ETA {0}   •   finishes around {1}",
+                "예상 시간 {0}   •   완료 예정 {1}",
                 FormatDuration(EstimatedRemainingSeconds), FormatFinishTime(EstimatedRemainingSeconds));
-            SpeedText = string.Format("{0:F2}x realtime   •   elapsed {1}",
+            SpeedText = Localization.FormatWithCurrentCulture(
+                "{0:F2}x realtime   •   elapsed {1}",
+                "실시간 대비 {0:F2}배   •   경과 {1}",
                 RenderSpeedMultiplier, FormatDuration(ElapsedSeconds));
-            ToastText = string.Format("Rendering  {0:F1}%  |  {1} / {2} frames  |  {3:F1} fps  |  ETA {4}",
+            ToastText = Localization.FormatWithCurrentCulture(
+                "Rendering  {0:F1}%  |  {1} / {2} frames  |  {3:F1} fps  |  ETA {4}",
+                "렌더링 중  {0:F1}%  |  {1} / {2} 프레임  |  {3:F1} fps  |  예상 {4}",
                 progress, CapturedFrames, TotalFrames, GenerationFps, FormatDuration(EstimatedRemainingSeconds));
             toastUntil = Time.unscaledTime + 1.0f;
         }
@@ -359,7 +382,12 @@ namespace OrbitRender.Renderer
                     catch (Exception ex) { Fail(ex); break; }
                     yield return next;
                 }
-                if (cancellation) { State = RenderState.Cancelled; Message = "Render cancelled."; ShowToast(Message, 5f); }
+                if (cancellation)
+                {
+                    State = RenderState.Cancelled;
+                    Message = Localization.Text("Render cancelled.", "렌더를 취소했습니다.");
+                    ShowToast(Message, 5f);
+                }
             }
             finally { (run as IDisposable)?.Dispose(); Cleanup(); routine = null; }
         }
@@ -467,7 +495,9 @@ namespace OrbitRender.Renderer
             State = RenderState.Rendering;
             renderTimer.Start();
             ApplyFramePacing();
-            Message = string.Format("Rendering {0}x{1} @ {2} fps (hold Escape 1s to force-cancel)",
+            Message = Localization.FormatWithCurrentCulture(
+                "Rendering {0}x{1} @ {2} fps (hold Escape 1s to force-cancel)",
+                "{0}x{1} @ {2} fps 렌더링 중 (강제 취소하려면 Esc를 1초간 누르세요)",
                 profile.Width, profile.Height, profile.Fps);
             ShowToast(Message, 2f, false);
             // Every output frame follows one complete game Update/LateUpdate/render.
@@ -539,7 +569,8 @@ namespace OrbitRender.Renderer
             }
             State = RenderState.Finishing;
             renderTimer.Stop();
-            Message = "Finalizing " + profile.ContainerExtension.TrimStart('.').ToUpperInvariant() + "...";
+            Message = Localization.Format("Finalizing {0}...", "{0} 마무리 중...",
+                profile.ContainerExtension.TrimStart('.').ToUpperInvariant());
             ShowToast(Message, 8f, false);
             var finalizationStart = System.Diagnostics.Stopwatch.GetTimestamp();
             try
@@ -559,8 +590,11 @@ namespace OrbitRender.Renderer
             }
             finally { finalizationTicks += System.Diagnostics.Stopwatch.GetTimestamp() - finalizationStart; }
             State = RenderState.Completed;
-            Message = "Completed: " + CapturedFrames + " frames."
-                + (audio != null && audio.Peak < 0.000001f ? " Audio mix was silent; check game sound settings." : "");
+            Message = Localization.Format("Completed: {0} frames.", "완료: {0}프레임.", CapturedFrames)
+                + (audio != null && audio.Peak < 0.000001f
+                    ? Localization.Text(" Audio mix was silent; check game sound settings.",
+                        " 오디오 믹스가 무음입니다. 게임 사운드 설정을 확인하세요.")
+                    : "");
             ShowToast(Message, 8f);
             Main.Entry.Logger.Log(string.Format("Completed: {0} frames in {1:F2}s, {2:F1} frames/s ({3:F2}x target). Video={4}x{5}@{6}fps {7}Mbps {8}/{9}. Audio={10}. Capture/encoder wait={11:F2}s. Metrics: game={12:F2}s, readbackWait={13:F2}s, readbackLatency={14:F2}s, readbackCopy={15:F2}s, pendingPeak={16}, encoderWrite={17:F2}s, encoderQueuePeak={18}, written={19}, audioCapture={20:F2}s, finalization={21:F2}s. Output={22}",
                 CapturedFrames, ElapsedSeconds, GenerationFps, GenerationFps / Clock.Fps,
@@ -837,7 +871,7 @@ namespace OrbitRender.Renderer
             if (rpcLoadRoutine != null) { StopCoroutine(rpcLoadRoutine); rpcLoadRoutine = null; }
             if (routine != null) { StopCoroutine(routine); routine = null; }
             State = RenderState.Cancelled;
-            Message = "Render force-cancelled.";
+            Message = Localization.Text("Render force-cancelled.", "렌더를 강제로 취소했습니다.");
             ShowToast(Message, 5f);
             activeRpcJob?.Cancel();
             Cleanup();
@@ -846,6 +880,13 @@ namespace OrbitRender.Renderer
         private void OnGUI()
         {
             if (!Main.Enabled) return;
+            if (State == RenderState.Idle)
+            {
+                Message = Localization.Text("Open a Custom Level, then Render.",
+                    "커스텀 레벨을 연 후 렌더를 실행하세요.");
+                ToastText = Localization.Text("Open a Custom Level, then press F6 to render.",
+                    "커스텀 레벨을 연 후 F6을 눌러 렌더를 실행하세요.");
+            }
             if (FfmpegInstaller.IsInstallPromptVisible)
             {
                 if (Event.current.type == EventType.Repaint)
@@ -1129,7 +1170,7 @@ namespace OrbitRender.Renderer
             if (ex is OperationCanceledException)
             {
                 State = RenderState.Cancelled;
-                Message = "Render cancelled.";
+                Message = Localization.Text("Render cancelled.", "렌더를 취소했습니다.");
                 job.Cancel();
             }
             else
@@ -1137,7 +1178,7 @@ namespace OrbitRender.Renderer
                 State = RenderState.Failed;
                 Message = ex.Message;
                 job.Fail(ex.Message);
-                ShowToast("Render failed: " + Message, 10f);
+                ShowToast(Localization.Format("Render failed: {0}", "렌더 실패: {0}", Message), 10f);
                 Main.Entry.Logger.Error("RPC render preparation: " + ex);
             }
             activeRpcJob = null;
@@ -1198,7 +1239,7 @@ namespace OrbitRender.Renderer
         {
             State = RenderState.Failed;
             Message = ex.Message;
-            ShowToast("Render failed: " + Message, 10f);
+            ShowToast(Localization.Format("Render failed: {0}", "렌더 실패: {0}", Message), 10f);
             Main.Entry.Logger.Error(ex.ToString());
         }
         internal void AbortWithError(Exception ex) { Fail(ex); StopAndClean(); }
@@ -1208,7 +1249,11 @@ namespace OrbitRender.Renderer
             encoderFallbackReason = null;
             if (rpcLoadRoutine != null) { StopCoroutine(rpcLoadRoutine); rpcLoadRoutine = null; }
             if (routine != null) { StopCoroutine(routine); routine = null; }
-            if (Busy) { State = RenderState.Cancelled; Message = "Render cancelled."; }
+            if (Busy)
+            {
+                State = RenderState.Cancelled;
+                Message = Localization.Text("Render cancelled.", "렌더를 취소했습니다.");
+            }
             Cleanup();
         }
         private void Cleanup()
@@ -1259,7 +1304,12 @@ namespace OrbitRender.Renderer
         private void TryCleanup(Action action)
         {
             try { action(); }
-            catch (Exception ex) { Main.Entry.Logger.Error("Cleanup: " + ex); State = RenderState.Failed; Message = "Cleanup failed: " + ex.Message; }
+            catch (Exception ex)
+            {
+                Main.Entry.Logger.Error("Cleanup: " + ex);
+                State = RenderState.Failed;
+                Message = Localization.Format("Cleanup failed: {0}", "정리 작업 실패: {0}", ex.Message);
+            }
         }
         private void OnDestroy() { StopAndClean(); if (Instance == this) Instance = null; }
         private void OnApplicationQuit() { StopAndClean(); }

@@ -74,16 +74,22 @@ namespace OrbitRender.UI
             var rect = new Rect(left, top, width, height);
             GUI.Box(rect, string.Empty);
             var content = new Rect(rect.x + 24f, rect.y + 18f, rect.width - 48f, rect.height - 36f);
-            GUI.Label(new Rect(content.x, content.y, content.width, 24f), "ENCODER CONFIRMATION", title);
+            GUI.Label(new Rect(content.x, content.y, content.width, 24f),
+                Localization.Text("ENCODER CONFIRMATION", "인코더 확인"), title);
             GUI.Label(new Rect(content.x, content.y + 34f, content.width, 38f),
-                "The selected hardware encoder could not be initialized.", message);
+                Localization.Text("The selected hardware encoder could not be initialized.",
+                    "선택한 하드웨어 인코더를 초기화할 수 없습니다."), message);
             GUI.Label(new Rect(content.x, content.y + 76f, content.width, 54f),
                 renderer.EncoderFallbackReason ?? string.Empty, detail);
             GUI.Label(new Rect(content.x, content.y + 132f, content.width, 28f),
-                "Use Software encoder for this render? Your saved encoder setting will not be changed.", detail);
-            if (GUI.Button(new Rect(content.x, content.y + 170f, 310f, 34f), "Use Software and continue"))
+                Localization.Text(
+                    "Use Software encoder for this render? Your saved encoder setting will not be changed.",
+                    "이번 렌더에 소프트웨어 인코더를 사용할까요? 저장된 인코더 설정은 변경되지 않습니다."), detail);
+            if (GUI.Button(new Rect(content.x, content.y + 170f, 310f, 34f),
+                Localization.Text("Use Software and continue", "소프트웨어로 계속")))
                 renderer.ConfirmEncoderFallback();
-            if (GUI.Button(new Rect(content.x + 326f, content.y + 170f, 160f, 34f), "Cancel render"))
+            if (GUI.Button(new Rect(content.x + 326f, content.y + 170f, 160f, 34f),
+                Localization.Text("Cancel render", "렌더 취소")))
                 renderer.RejectEncoderFallback();
         }
 
@@ -100,23 +106,33 @@ namespace OrbitRender.UI
 
             var waiting = FfmpegInstaller.IsAwaitingConsent;
             GUI.Label(new Rect(content.x, content.y, content.width, 24f),
-                waiting ? "FFMPEG INSTALLATION" : "INSTALLING FFMPEG", title);
+                waiting
+                    ? Localization.Text("FFMPEG INSTALLATION", "FFMPEG 설치")
+                    : Localization.Text("INSTALLING FFMPEG", "FFMPEG 설치 중"), title);
             GUI.Label(new Rect(content.x, content.y + 34f, content.width, 40f),
                 waiting
-                    ? "OrbitRender needs FFmpeg to export videos. Download the platform-compatible binary now?"
-                    : "Downloading FFmpeg for this platform. The renderer will be ready when the download finishes.",
+                    ? Localization.Text(
+                        "OrbitRender needs FFmpeg to export videos. Download the platform-compatible binary now?",
+                        "OrbitRender가 동영상을 내보내려면 FFmpeg가 필요합니다. 현재 플랫폼용 파일을 지금 다운로드할까요?")
+                    : Localization.Text(
+                        "Downloading FFmpeg for this platform. The renderer will be ready when the download finishes.",
+                        "현재 플랫폼용 FFmpeg를 다운로드하고 있습니다. 다운로드가 끝나면 렌더러를 사용할 수 있습니다."),
                 message);
             GUI.Label(new Rect(content.x, content.y + 82f, content.width, 52f),
                 waiting
-                    ? "The download comes from the FFmpeg build provider and is saved inside the mod folder. An internet connection is required."
+                    ? Localization.Text(
+                        "The download comes from the FFmpeg build provider and is saved inside the mod folder. An internet connection is required.",
+                        "다운로드는 FFmpeg 빌드 제공처에서 진행되며 모드 폴더에 저장됩니다. 인터넷 연결이 필요합니다.")
                     : FfmpegInstaller.StatusMessage,
                 detail);
 
             if (waiting)
             {
-                if (GUI.Button(new Rect(content.x, content.y + 158f, 310f, 34f), "Install FFmpeg"))
+                if (GUI.Button(new Rect(content.x, content.y + 158f, 310f, 34f),
+                    Localization.Text("Install FFmpeg", "FFmpeg 설치")))
                     FfmpegInstaller.ConfirmInstall();
-                if (GUI.Button(new Rect(content.x + 326f, content.y + 158f, 160f, 34f), "Not now"))
+                if (GUI.Button(new Rect(content.x + 326f, content.y + 158f, 160f, 34f),
+                    Localization.Text("Not now", "나중에")))
                     FfmpegInstaller.DeclineInstall();
             }
         }

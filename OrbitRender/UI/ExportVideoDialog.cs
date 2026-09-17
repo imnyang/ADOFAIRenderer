@@ -13,6 +13,9 @@ namespace OrbitRender.UI
         private static Draft draft;
         private static string error;
         private static Rect windowRect;
+        private static bool renderOptionsExpanded = true;
+        private static bool visibleComponentsExpanded = true;
+        private static bool encodingExpanded;
 
         internal static bool IsOpen => open;
 
@@ -53,7 +56,8 @@ namespace OrbitRender.UI
                 GUI.color = previous;
             }
 
-            windowRect = GUI.Window(WindowId, windowRect, id => DrawWindow(id, renderer), "Export Video");
+            windowRect = GUI.Window(WindowId, windowRect, id => DrawWindow(id, renderer),
+                Localization.Text("Export Video", "비디오 내보내기"));
             if (Event.current.type != EventType.Layout && Event.current.type != EventType.Repaint)
                 Event.current.Use();
         }
@@ -61,12 +65,17 @@ namespace OrbitRender.UI
         private static void DrawWindow(int id, RendererController renderer)
         {
             GUILayout.BeginVertical();
-            GUILayout.Label("Choose the settings for this video export.");
+            GUILayout.Label(Localization.Text("Choose the settings for this video export.",
+                "비디오 내보내기 설정을 선택하세요."));
             GUILayout.Space(6f);
 
-            GUILayout.Label("Preset");
+            GUILayout.Label(Localization.Text("Preset", "프리셋"));
             var preset = (RendererPreset)GUILayout.Toolbar((int)draft.Preset,
-                new[] { "Custom", "Preview", "FullHD", "QHD", "UHD 4K" });
+                new[] {
+                    Localization.Text("Custom", "사용자 지정"),
+                    Localization.Text("Preview", "미리보기"),
+                    "FullHD", "QHD", "UHD 4K"
+                });
             if (preset != draft.Preset)
             {
                 draft.Preset = preset;
@@ -76,31 +85,60 @@ namespace OrbitRender.UI
             if (draft.Preset == RendererPreset.Custom)
             {
                 GUILayout.BeginHorizontal();
-                draft.WidthText = LabeledField("Width", draft.WidthText, 90f);
-                draft.HeightText = LabeledField("Height", draft.HeightText, 90f);
+                draft.WidthText = LabeledField(Localization.Text("Width", "너비"), draft.WidthText, 90f);
+                draft.HeightText = LabeledField(Localization.Text("Height", "높이"), draft.HeightText, 90f);
                 draft.FpsText = LabeledField("FPS", draft.FpsText, 80f);
-                draft.BitrateText = LabeledField("Bitrate", draft.BitrateText, 80f);
+                draft.BitrateText = LabeledField(Localization.Text("Bitrate", "비트레이트"), draft.BitrateText, 80f);
                 GUILayout.Label("Mbps", GUILayout.Width(44f));
                 GUILayout.EndHorizontal();
             }
             else
             {
-                GUILayout.Label(string.Format("Preset output: {0} × {1} @ {2} FPS, {3} Mbps",
+                GUILayout.Label(Localization.Format(
+                    "Preset output: {0} × {1} @ {2} FPS, {3} Mbps",
+                    "프리셋 출력: {0} × {1} @ {2} FPS, {3} Mbps",
                     draft.WidthText, draft.HeightText, draft.FpsText, draft.BitrateText));
             }
 
             GUILayout.Space(6f);
-            draft.EndDelayText = LabeledField("End delay (seconds)", draft.EndDelayText, 90f);
-            draft.CaptureAudio = GUILayout.Toggle(draft.CaptureAudio, "Capture audio");
-            draft.BgaMode = GUILayout.Toggle(draft.BgaMode, "BGA mode (hide tiles, planets and hit sounds)");
-            draft.OpenOutputFolder = GUILayout.Toggle(draft.OpenOutputFolder, "Open output folder after render");
-            draft.SaveAsDefault = GUILayout.Toggle(draft.SaveAsDefault, "Save these values as the default renderer settings");
+            if (DrawSectionHeader(Localization.Text("Render options", "렌더 옵션"), ref renderOptionsExpanded))
+            {
+                draft.EndDelayText = LabeledField(Localization.Text("End delay (seconds)", "종료 지연(초)"),
+                    draft.EndDelayText, 90f);
+                draft.CaptureAudio = GUILayout.Toggle(draft.CaptureAudio,
+                    Localization.Text("Capture audio", "오디오 캡처"));
+                draft.BgaMode = GUILayout.Toggle(draft.BgaMode,
+                    Localization.Text("BGA mode (hide tiles, planets & hit sounds)",
+                        "BGA 모드 (타일, 행성 및 타격음 숨기기)"));
+                draft.OpenOutputFolder = GUILayout.Toggle(draft.OpenOutputFolder,
+                    Localization.Text("Open output folder after render", "렌더 후 출력 폴더 열기"));
+                draft.SaveAsDefault = GUILayout.Toggle(draft.SaveAsDefault,
+                    Localization.Text("Save these values as the default renderer settings",
+                        "이 값을 렌더러 기본 설정으로 저장"));
+            }
+
+            if (DrawSectionHeader(Localization.Text("Visible components", "표시할 구성 요소"),
+                ref visibleComponentsExpanded))
+            {
+                draft.ShowPlanetRings = GUILayout.Toggle(draft.ShowPlanetRings,
+                    Localization.Text("Show planet rings", "행성 고리 표시"));
+                draft.ShowSongTitle = GUILayout.Toggle(draft.ShowSongTitle,
+                    Localization.Text("Show song title", "곡 제목 표시"));
+                draft.ShowCountdown = GUILayout.Toggle(draft.ShowCountdown,
+                    Localization.Text("Show countdown", "카운트다운 표시"));
+                draft.ShowResultText = GUILayout.Toggle(draft.ShowResultText,
+                    Localization.Text("Show result text (hit judgments stay hidden)",
+                        "결과 텍스트 표시 (판정은 숨김)"));
+            }
 
             GUILayout.Space(6f);
-            draft.Encoding = DrawEncoding(draft.Encoding);
-            draft.Encoder = DrawEncoder(draft.Encoder);
-            draft.Codec = DrawCodec(draft.Codec);
-            draft.BitDepth = DrawBitDepth(draft.BitDepth);
+            if (DrawSectionHeader(Localization.Text("Encoding", "인코딩"), ref encodingExpanded))
+            {
+                draft.Encoding = DrawEncoding(draft.Encoding);
+                draft.Encoder = DrawEncoder(draft.Encoder);
+                draft.Codec = DrawCodec(draft.Codec);
+                draft.BitDepth = DrawBitDepth(draft.BitDepth);
+            }
 
             GUILayout.FlexibleSpace();
             if (!string.IsNullOrEmpty(error))
@@ -113,8 +151,9 @@ namespace OrbitRender.UI
 
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Cancel", GUILayout.Width(120f))) Close();
-            if (GUILayout.Button("Export Video", GUILayout.Width(150f))) Confirm(renderer);
+            if (GUILayout.Button(Localization.Text("Cancel", "취소"), GUILayout.Width(120f))) Close();
+            if (GUILayout.Button(Localization.Text("Export Video", "비디오 내보내기"), GUILayout.Width(150f)))
+                Confirm(renderer);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0f, 0f, 10000f, 26f));
@@ -126,21 +165,36 @@ namespace OrbitRender.UI
             return GUILayout.TextField(value ?? string.Empty, GUILayout.Width(width));
         }
 
+        private static bool DrawSectionHeader(string title, ref bool expanded)
+        {
+            var marker = expanded ? "▼ " : "▶ ";
+            if (GUILayout.Button(marker + title, GUI.skin.button, GUILayout.ExpandWidth(true)))
+                expanded = !expanded;
+            return expanded;
+        }
+
         private static EncoderSpeed DrawEncoding(EncoderSpeed value)
         {
-            GUILayout.Label("Encoding speed");
-            return (EncoderSpeed)GUILayout.Toolbar((int)value, new[] { "Maximum", "Balanced", "Quality" });
+            GUILayout.Label(Localization.Text("Encoding speed", "인코딩 속도"));
+            return (EncoderSpeed)GUILayout.Toolbar((int)value, new[] {
+                Localization.Text("Maximum", "최대 속도"),
+                Localization.Text("Balanced", "균형"),
+                Localization.Text("Quality", "품질")
+            });
         }
 
         private static VideoEncoder DrawEncoder(VideoEncoder value)
         {
-            GUILayout.Label("Video encoder");
+            GUILayout.Label(Localization.Text("Video encoder", "비디오 인코더"));
             var selected = value == VideoEncoder.Auto ? 0
                 : value == VideoEncoder.NvidiaNvenc ? 1
                 : value == VideoEncoder.IntelQsv ? 2
                 : value == VideoEncoder.AmdAmf ? 3 : 4;
             selected = GUILayout.Toolbar(selected,
-                new[] { "Auto", "NVIDIA NVENC", "Intel QSV", "AMD AMF", "Software" });
+                new[] {
+                    Localization.Text("Auto", "자동"), "NVIDIA NVENC", "Intel QSV", "AMD AMF",
+                    Localization.Text("Software", "소프트웨어")
+                });
             switch (selected)
             {
                 case 1: return VideoEncoder.NvidiaNvenc;
@@ -153,13 +207,13 @@ namespace OrbitRender.UI
 
         private static VideoCodec DrawCodec(VideoCodec value)
         {
-            GUILayout.Label("Video codec");
+            GUILayout.Label(Localization.Text("Video codec", "비디오 코덱"));
             return (VideoCodec)GUILayout.Toolbar((int)value, new[] { "H.264", "H.265", "VP9", "AV1" });
         }
 
         private static VideoBitDepth DrawBitDepth(VideoBitDepth value)
         {
-            GUILayout.Label("Video bit depth");
+            GUILayout.Label(Localization.Text("Video bit depth", "비트 깊이"));
             return (VideoBitDepth)GUILayout.Toolbar((int)value, new[] { "8-bit", "10-bit" });
         }
 
@@ -167,7 +221,7 @@ namespace OrbitRender.UI
         {
             if (renderer == null || renderer.Busy)
             {
-                error = "A render is already in progress.";
+                error = Localization.Text("A render is already in progress.", "렌더가 이미 진행 중입니다.");
                 return;
             }
 
@@ -207,6 +261,10 @@ namespace OrbitRender.UI
             internal string EndDelayText;
             internal bool CaptureAudio;
             internal bool BgaMode;
+            internal bool ShowPlanetRings;
+            internal bool ShowSongTitle;
+            internal bool ShowCountdown;
+            internal bool ShowResultText;
             internal bool OpenOutputFolder;
             internal bool SaveAsDefault;
             internal EncoderSpeed Encoding;
@@ -225,6 +283,10 @@ namespace OrbitRender.UI
                     EndDelayText = settings.EndDelaySeconds.ToString("0.##", CultureInfo.InvariantCulture),
                     CaptureAudio = settings.CaptureAudio,
                     BgaMode = settings.BgaMode,
+                    ShowPlanetRings = settings.ShowPlanetRings,
+                    ShowSongTitle = settings.ShowSongTitle,
+                    ShowCountdown = settings.ShowCountdown,
+                    ShowResultText = settings.ShowResultText,
                     OpenOutputFolder = settings.OpenOutputFolder,
                     Encoding = settings.Encoding,
                     Encoder = settings.Encoder,
@@ -255,24 +317,29 @@ namespace OrbitRender.UI
                     if (!int.TryParse(WidthText, out width) || !int.TryParse(HeightText, out height)
                         || !int.TryParse(FpsText, out fps) || !int.TryParse(BitrateText, out bitrate))
                     {
-                        message = "Width, height, FPS and bitrate must be valid numbers.";
+                        message = Localization.Text(
+                            "Width, height, FPS and bitrate must be valid numbers.",
+                            "너비, 높이, FPS 및 비트레이트는 유효한 숫자여야 합니다.");
                         return false;
                     }
                     if (width < 320 || width > 3840 || height < 180 || height > 2160
                         || fps < 15 || fps > 240 || bitrate < 1 || bitrate > 200)
                     {
-                        message = "Custom values are outside the supported ranges.";
+                        message = Localization.Text("Custom values are outside the supported ranges.",
+                            "사용자 지정 값이 지원 범위를 벗어났습니다.");
                         return false;
                     }
                     if ((width & 1) != 0 || (height & 1) != 0)
                     {
-                        message = "Width and height must be even numbers.";
+                        message = Localization.Text("Width and height must be even numbers.",
+                            "너비와 높이는 짝수여야 합니다.");
                         return false;
                     }
                 }
                 if (!TryParseFloat(EndDelayText, out endDelay) || endDelay < 0f || endDelay > 30f)
                 {
-                    message = "End delay must be between 0 and 30 seconds.";
+                    message = Localization.Text("End delay must be between 0 and 30 seconds.",
+                        "종료 지연은 0~30초 사이여야 합니다.");
                     return false;
                 }
 
@@ -281,6 +348,10 @@ namespace OrbitRender.UI
                     EndDelaySeconds = endDelay,
                     CaptureAudio = CaptureAudio,
                     BgaMode = BgaMode,
+                    ShowPlanetRings = ShowPlanetRings,
+                    ShowSongTitle = ShowSongTitle,
+                    ShowCountdown = ShowCountdown,
+                    ShowResultText = ShowResultText,
                     Encoding = Encoding,
                     Encoder = Encoder,
                     VideoCodec = Codec,
@@ -310,6 +381,10 @@ namespace OrbitRender.UI
                 settings.EndDelaySeconds = options.EndDelaySeconds.Value;
                 settings.CaptureAudio = CaptureAudio;
                 settings.BgaMode = BgaMode;
+                settings.ShowPlanetRings = ShowPlanetRings;
+                settings.ShowSongTitle = ShowSongTitle;
+                settings.ShowCountdown = ShowCountdown;
+                settings.ShowResultText = ShowResultText;
                 settings.Encoding = Encoding;
                 settings.Encoder = Encoder;
                 settings.Codec = Codec;

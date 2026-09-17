@@ -18,9 +18,15 @@ namespace OrbitRender.Renderer
         {
             get
             {
-                if (Errors > 0) return string.Format("Diagnostics found {0} error(s) and {1} warning(s).", Errors, Warnings);
-                if (Warnings > 0) return string.Format("Diagnostics passed with {0} warning(s).", Warnings);
-                return "All diagnostics passed.";
+                if (Errors > 0)
+                    return Localization.FormatWithCurrentCulture(
+                        "Diagnostics found {0} error(s) and {1} warning(s).",
+                        "진단에서 오류 {0}개와 경고 {1}개를 발견했습니다.", Errors, Warnings);
+                if (Warnings > 0)
+                    return Localization.FormatWithCurrentCulture(
+                        "Diagnostics passed with {0} warning(s).",
+                        "진단을 통과했지만 경고가 {0}개 있습니다.", Warnings);
+                return Localization.Text("All diagnostics passed.", "모든 진단을 통과했습니다.");
             }
         }
         internal string Report => string.Join(Environment.NewLine, lines.ToArray());

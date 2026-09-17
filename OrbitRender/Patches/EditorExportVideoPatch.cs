@@ -64,7 +64,8 @@ namespace OrbitRender.Patches
 
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => ExportVideo(editor));
-            SetButtonLabel(button.gameObject, ButtonLabel);
+            SetButtonLabel(button.gameObject,
+                Localization.Text(ButtonLabel, "비디오 내보내기"));
             button.gameObject.SetActive(true);
         }
 
@@ -73,13 +74,15 @@ namespace OrbitRender.Patches
             var renderer = RendererController.Instance;
             if (renderer == null)
             {
-                editor.ShowNotification("OrbitRender is not ready yet.", null, 4f);
+                editor.ShowNotification(Localization.Text("OrbitRender is not ready yet.",
+                    "OrbitRender가 아직 준비되지 않았습니다."), null, 4f);
                 return;
             }
 
             if (renderer.Busy)
             {
-                editor.ShowNotification(renderer.Message ?? "A render is already in progress.", null, 4f);
+                editor.ShowNotification(renderer.Message ?? Localization.Text(
+                    "A render is already in progress.", "렌더가 이미 진행 중입니다."), null, 4f);
                 return;
             }
 

@@ -82,10 +82,22 @@ namespace OrbitRender
             get
             {
                 var current = Interlocked.CompareExchange(ref state, NotStarted, NotStarted);
-                if (current == AwaitingConsent) return "FFmpeg is not installed. Waiting for your confirmation to download it.";
-                if (current == Downloading) return "Downloading FFmpeg for this platform...";
-                if (current == Failed) return "FFmpeg could not be installed automatically: " + error + ". Check the log or set FFmpeg executable manually.";
-                if (current == Declined) return "FFmpeg installation was skipped. Set FFmpeg executable manually or install it below.";
+                if (current == AwaitingConsent)
+                    return Localization.Text(
+                        "FFmpeg is not installed. Waiting for your confirmation to download it.",
+                        "FFmpeg가 설치되지 않았습니다. 다운로드 확인을 기다리고 있습니다.");
+                if (current == Downloading)
+                    return Localization.Text("Downloading FFmpeg for this platform...",
+                        "현재 플랫폼용 FFmpeg를 다운로드하고 있습니다...");
+                if (current == Failed)
+                    return Localization.Format(
+                        "FFmpeg could not be installed automatically: {0}. Check the log or set FFmpeg executable manually.",
+                        "FFmpeg를 자동으로 설치할 수 없습니다: {0}. 로그를 확인하거나 FFmpeg 실행 파일을 직접 지정하세요.",
+                        error);
+                if (current == Declined)
+                    return Localization.Text(
+                        "FFmpeg installation was skipped. Set FFmpeg executable manually or install it below.",
+                        "FFmpeg 설치를 건너뛰었습니다. 실행 파일을 직접 지정하거나 아래에서 설치하세요.");
                 return string.Empty;
             }
         }
