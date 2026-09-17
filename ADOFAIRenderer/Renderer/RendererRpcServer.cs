@@ -25,11 +25,14 @@ namespace ADOFAIRenderer.Renderer
         public int? BitrateMbps;
         public float? EndDelaySeconds;
         public bool? BgaMode;
+        public VideoCodec? VideoCodec;
+        public VideoBitDepth? BitDepth;
 
         public bool HasValues
         {
             get { return Preset.HasValue || Width.HasValue || Height.HasValue || Fps.HasValue
-                || BitrateMbps.HasValue || EndDelaySeconds.HasValue || BgaMode.HasValue; }
+                || BitrateMbps.HasValue || EndDelaySeconds.HasValue || BgaMode.HasValue
+                || VideoCodec.HasValue || BitDepth.HasValue; }
         }
 
         public object Snapshot()
@@ -42,7 +45,9 @@ namespace ADOFAIRenderer.Renderer
                 fps = Fps,
                 bitrateMbps = BitrateMbps,
                 endDelaySeconds = EndDelaySeconds,
-                bgaMode = BgaMode
+                bgaMode = BgaMode,
+                videoCodec = VideoCodec.HasValue ? VideoCodec.Value.ToString() : null,
+                bitDepth = BitDepth.HasValue ? (int)(BitDepth.Value == VideoBitDepth.Ten ? 10 : 8) : (int?)null
             };
         }
     }
@@ -59,6 +64,7 @@ namespace ADOFAIRenderer.Renderer
         Preparing,
         Rendering,
         Finishing,
+        AwaitingConfirmation,
         Completed,
         Failed,
         Cancelled
@@ -375,6 +381,43 @@ namespace ADOFAIRenderer.Renderer
                 error = InvalidOption("endDelaySeconds", "0..30");
                 return null;
             }
+            VideoCodec? videoCodec = null;
+            VideoCodec? primaryCodec = null;
+            VideoCodec? aliasCodec = null;
+            if (!string.IsNullOrWhiteSpace(payload.VideoCodec))
+            {
+                if (!VideoCodecCatalog.TryParse(payload.VideoCodec, out var parsedCodec))
+                {
+                    error = "Unknown videoCodec. Use H264, H265, VP9, or AV1.";
+                    return null;
+                }
+                primaryCodec = parsedCodec;
+            }
+            if (!string.IsNullOrWhiteSpace(payload.Codec))
+            {
+                if (!VideoCodecCatalog.TryParse(payload.Codec, out var parsedAliasCodec))
+                {
+                    error = "Unknown codec. Use H264, H265, VP9, or AV1.";
+                    return null;
+                }
+                aliasCodec = parsedAliasCodec;
+            }
+            if (primaryCodec.HasValue && aliasCodec.HasValue && primaryCodec.Value != aliasCodec.Value)
+            {
+                error = "Use either 'videoCodec' or 'codec'; both values must match.";
+                return null;
+            }
+            videoCodec = primaryCodec ?? aliasCodec;
+            VideoBitDepth? bitDepth = null;
+            if (payload.BitDepth.HasValue)
+            {
+                if (payload.BitDepth.Value != 8 && payload.BitDepth.Value != 10)
+                {
+                    error = "Option 'bitDepth' must be 8 or 10.";
+                    return null;
+                }
+                bitDepth = payload.BitDepth.Value == 10 ? VideoBitDepth.Ten : VideoBitDepth.Eight;
+            }
             var options = new RpcRenderOptions {
                 Preset = preset,
                 Width = payload.Width,
@@ -382,7 +425,9 @@ namespace ADOFAIRenderer.Renderer
                 Fps = fps,
                 BitrateMbps = bitrate,
                 EndDelaySeconds = payload.EndDelaySeconds,
-                BgaMode = payload.BgaMode
+                BgaMode = payload.BgaMode,
+                VideoCodec = videoCodec,
+                BitDepth = bitDepth
             };
             return options.HasValues ? options : null;
         }
@@ -405,6 +450,12 @@ namespace ADOFAIRenderer.Renderer
             }
         }
 
+        private static string ContentTypeForPath(string path)
+        {
+            return string.Equals(Path.GetExtension(path), ".webm", StringComparison.OrdinalIgnoreCase)
+                ? "video/webm" : "video/mp4";
+        }
+
         private static void Download(HttpListenerContext context, RpcRenderJob job)
         {
             var path = job.OutputPath;
@@ -416,7 +467,7 @@ namespace ADOFAIRenderer.Renderer
             }
             var info = new FileInfo(path);
             context.Response.StatusCode = 200;
-            context.Response.ContentType = "video/mp4";
+            context.Response.ContentType = ContentTypeForPath(path);
             context.Response.ContentLength64 = info.Length;
             context.Response.AddHeader("Content-Disposition", "attachment; filename=\"" + Uri.EscapeDataString(info.Name) + "\"");
             using (var file = File.OpenRead(path)) file.CopyTo(context.Response.OutputStream);
@@ -457,6 +508,9 @@ namespace ADOFAIRenderer.Renderer
             [JsonProperty("bitrate")] public int? Bitrate { get; set; }
             [JsonProperty("endDelaySeconds")] public float? EndDelaySeconds { get; set; }
             [JsonProperty("bgaMode")] public bool? BgaMode { get; set; }
+            [JsonProperty("videoCodec")] public string VideoCodec { get; set; }
+            [JsonProperty("codec")] public string Codec { get; set; }
+            [JsonProperty("bitDepth")] public int? BitDepth { get; set; }
             [JsonProperty("captureAudio")] public bool? CaptureAudio { get; set; }
             [JsonProperty("audio")] public bool? Audio { get; set; }
         }
