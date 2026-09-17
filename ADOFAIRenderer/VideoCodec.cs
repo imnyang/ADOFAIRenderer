@@ -86,7 +86,7 @@ namespace ADOFAIRenderer
             VideoCodec.VP9, "VP9", "libvpx-vp9", null, null, null,
             ".webm", "video/webm", "libopus", "160k");
         private static readonly VideoCodecDefinition AV1 = new VideoCodecDefinition(
-            VideoCodec.AV1, "AV1", "libsvtav1", "av1_nvenc", "av1_qsv", "av1_amf",
+            VideoCodec.AV1, "AV1", "libaom-av1", "av1_nvenc", "av1_qsv", "av1_amf",
             ".mp4", "video/mp4", "aac", "320k");
 
         internal static VideoCodecDefinition Get(VideoCodec codec)

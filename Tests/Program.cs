@@ -103,7 +103,7 @@ internal static class Program
             new CodecCase("libx264", ".mp4", "h264"),
             new CodecCase("libx265", ".mp4", "hevc"),
             new CodecCase("libvpx-vp9", ".webm", "vp9"),
-            new CodecCase("libsvtav1", ".mp4", "av1")
+            new CodecCase("libaom-av1", ".mp4", "av1")
         };
         foreach (var codec in codecs)
         {

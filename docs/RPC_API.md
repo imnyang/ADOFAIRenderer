@@ -109,7 +109,7 @@ Omitted options use the Unity Mod Manager settings. If `bgaMode` is omitted, the
 
 If both `fps` and `targetFps` are supplied, they must match. The same applies to `bitrateMbps` and `bitrate`. When both audio fields are supplied, `captureAudio` takes precedence. Supplying video overrides without `preset` uses the Custom profile.
 
-H.264, H.265, and AV1 outputs use MP4 with AAC audio. VP9 outputs WebM with Opus audio. The selected codec must be present in the configured FFmpeg build. Software AV1 uses target-bitrate VBR when audio is included and capped CRF for video-only renders because SVT-AV1 does not support strict CBR.
+H.264, H.265, and AV1 outputs use MP4 with AAC audio. VP9 outputs WebM with Opus audio. The selected codec must be present in the configured FFmpeg build. Software AV1 uses `libaom-av1`; it uses target-bitrate VBR when audio is included and constant-quality mode for video-only renders.
 
 The encoder setting selects NVIDIA NVENC, Intel Quick Sync (`*_qsv`), AMD AMF (`*_amf`), or software encoding where the selected codec has a matching backend. VP9 has no matching NVENC/QSV/AMF encoder in this profile and uses `libvpx-vp9`.
 

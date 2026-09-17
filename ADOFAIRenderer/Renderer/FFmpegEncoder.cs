@@ -78,13 +78,13 @@ namespace ADOFAIRenderer.Renderer
             var rateControl = legacyCrf && string.Equals(codec, "libx264", StringComparison.OrdinalIgnoreCase)
                 ? "-crf 18"
                 : "-b:v " + bitrateMbps + "M -maxrate " + bitrateMbps + "M -bufsize " + bufferSizeMbps + "M";
-            if (string.Equals(codec, "libsvtav1", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(codec, "libaom-av1", StringComparison.OrdinalIgnoreCase))
             {
-                // SVT-AV1 does not accept x264-style CBR flags. Use a target
+                // libaom-av1 does not accept x264-style CBR flags. Use a target
                 // bitrate for audio renders and capped CRF for video-only
                 // renders so the existing quality/bitrate intent is retained.
                 rateControl = legacyCrf
-                    ? "-crf 30 -maxrate " + bitrateMbps + "M"
+                    ? "-crf 30 -b:v 0"
                     : "-b:v " + bitrateMbps + "M";
             }
             var encoderOptions = BuildEncoderOptions(codec, preset, rateControl, isHardwareEncoder, pixelFormat);
@@ -190,11 +190,11 @@ namespace ADOFAIRenderer.Renderer
                     + " -row-mt 1 " + rateControl;
             }
 
-            if (normalized == "libsvtav1")
+            if (normalized == "libaom-av1")
             {
-                var svtPreset = string.Equals(preset, "ultrafast", StringComparison.OrdinalIgnoreCase) ? 12
-                    : string.Equals(preset, "veryfast", StringComparison.OrdinalIgnoreCase) ? 10 : 8;
-                return "-c:v libsvtav1 -preset " + svtPreset + " " + rateControl;
+                var aomCpuUsed = string.Equals(preset, "ultrafast", StringComparison.OrdinalIgnoreCase) ? 8
+                    : string.Equals(preset, "veryfast", StringComparison.OrdinalIgnoreCase) ? 6 : 4;
+                return "-c:v libaom-av1 -cpu-used " + aomCpuUsed + " -row-mt 1 " + rateControl;
             }
 
             var encoderPreset = preset;
