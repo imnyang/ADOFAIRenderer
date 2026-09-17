@@ -25,6 +25,10 @@ namespace OrbitRender.Renderer
         public int? BitrateMbps;
         public float? EndDelaySeconds;
         public bool? BgaMode;
+        public bool? ShowPlanetRings;
+        public bool? ShowSongTitle;
+        public bool? ShowCountdown;
+        public bool? ShowResultText;
         public VideoCodec? VideoCodec;
         public VideoBitDepth? BitDepth;
 
@@ -32,6 +36,8 @@ namespace OrbitRender.Renderer
         {
             get { return Preset.HasValue || Width.HasValue || Height.HasValue || Fps.HasValue
                 || BitrateMbps.HasValue || EndDelaySeconds.HasValue || BgaMode.HasValue
+                || ShowPlanetRings.HasValue
+                || ShowSongTitle.HasValue || ShowCountdown.HasValue || ShowResultText.HasValue
                 || VideoCodec.HasValue || BitDepth.HasValue; }
         }
 
@@ -46,6 +52,10 @@ namespace OrbitRender.Renderer
                 bitrateMbps = BitrateMbps,
                 endDelaySeconds = EndDelaySeconds,
                 bgaMode = BgaMode,
+                showPlanetRings = ShowPlanetRings,
+                showSongTitle = ShowSongTitle,
+                showCountdown = ShowCountdown,
+                showResultText = ShowResultText,
                 videoCodec = VideoCodec.HasValue ? VideoCodec.Value.ToString() : null,
                 bitDepth = BitDepth.HasValue ? (int)(BitDepth.Value == VideoBitDepth.Ten ? 10 : 8) : (int?)null
             };
@@ -426,6 +436,10 @@ namespace OrbitRender.Renderer
                 BitrateMbps = bitrate,
                 EndDelaySeconds = payload.EndDelaySeconds,
                 BgaMode = payload.BgaMode,
+                ShowPlanetRings = payload.ShowPlanetRings,
+                ShowSongTitle = payload.ShowSongTitle,
+                ShowCountdown = payload.ShowCountdown,
+                ShowResultText = payload.ShowResultText,
                 VideoCodec = videoCodec,
                 BitDepth = bitDepth
             };
@@ -508,6 +522,10 @@ namespace OrbitRender.Renderer
             [JsonProperty("bitrate")] public int? Bitrate { get; set; }
             [JsonProperty("endDelaySeconds")] public float? EndDelaySeconds { get; set; }
             [JsonProperty("bgaMode")] public bool? BgaMode { get; set; }
+            [JsonProperty("showPlanetRings")] public bool? ShowPlanetRings { get; set; }
+            [JsonProperty("showSongTitle")] public bool? ShowSongTitle { get; set; }
+            [JsonProperty("showCountdown")] public bool? ShowCountdown { get; set; }
+            [JsonProperty("showResultText")] public bool? ShowResultText { get; set; }
             [JsonProperty("videoCodec")] public string VideoCodec { get; set; }
             [JsonProperty("codec")] public string Codec { get; set; }
             [JsonProperty("bitDepth")] public int? BitDepth { get; set; }

@@ -78,6 +78,10 @@ Content-Type: application/json
   "bitrateMbps": 30,
   "captureAudio": true,
   "bgaMode": true,
+  "showPlanetRings": true,
+  "showSongTitle": true,
+  "showCountdown": true,
+  "showResultText": true,
   "endDelaySeconds": 2
 }
 ```
@@ -104,8 +108,12 @@ Exactly one of `levelPath` or the compatibility alias `path` must provide a vali
 | `captureAudio` | boolean | No | `true` / `false` | Capture game audio |
 | `audio` | boolean | No | `true` / `false` | Alias for `captureAudio` |
 | `bgaMode` | boolean | No | `true` / `false` | Exclude tiles, planets, and gameplay hit sounds |
+| `showPlanetRings` | boolean | No | `true` / `false` | Include planet orbit rings |
+| `showSongTitle` | boolean | No | `true` / `false` | Include the default song-title text |
+| `showCountdown` | boolean | No | `true` / `false` | Include Get Ready, countdown numbers, and Go text |
+| `showResultText` | boolean | No | `true` / `false` | Include only the completion/Pure Perfect message; judgment details remain hidden |
 
-Omitted options use the Unity Mod Manager settings. If `bgaMode` is omitted, the configured BGA Mode setting is used.
+Omitted options use the Unity Mod Manager settings, including BGA mode and all visible-component options.
 
 If both `fps` and `targetFps` are supplied, they must match. The same applies to `bitrateMbps` and `bitrate`. When both audio fields are supplied, `captureAudio` takes precedence. Supplying video overrides without `preset` uses the Custom profile.
 

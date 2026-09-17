@@ -22,6 +22,10 @@ namespace OrbitRender.Renderer
         {
             public Canvas Canvas;
             public bool Enabled;
+            public bool Capture;
+            public RenderMode RenderMode;
+            public Camera WorldCamera;
+            public float PlaneDistance;
         }
         private sealed class Pending
         {
@@ -92,7 +96,7 @@ namespace OrbitRender.Renderer
         public int PendingReadbacks => pending.Count;
         public int PeakPendingReadbacks => peakPending;
 
-        public FrameCapture(FFmpegEncoder encoder, int width, int height)
+        public FrameCapture(FFmpegEncoder encoder, int width, int height, Canvas defaultTextCanvas = null)
         {
             this.encoder = encoder;
             this.width = width;
@@ -125,9 +129,21 @@ namespace OrbitRender.Renderer
                 {
                     // Keep world-space level decorations; exclude editor/game HUD
                     // and third-party screen-space overlays from the three cameras.
+                    // The selected default text is the one exception: its canvas
+                    // is converted to camera space so it is composited into the
+                    // same render target after the gameplay scene.
                     if (!canvas.isRootCanvas || canvas.renderMode == RenderMode.WorldSpace) continue;
-                    canvases.Add(new CanvasState { Canvas = canvas, Enabled = canvas.enabled });
-                    canvas.enabled = false;
+                    var captureCanvas = canvas == defaultTextCanvas;
+                    canvases.Add(new CanvasState {
+                        Canvas = canvas,
+                        Enabled = canvas.enabled,
+                        Capture = captureCanvas,
+                        RenderMode = canvas.renderMode,
+                        WorldCamera = canvas.worldCamera,
+                        PlaneDistance = canvas.planeDistance
+                    });
+                    if (captureCanvas) ConfigureCaptureCanvas(canvas);
+                    else canvas.enabled = false;
                 }
                 if (!SystemInfo.supportsAsyncGPUReadback)
                     fallback = new Texture2D(width, height, TextureFormat.RGBA32, false);
@@ -149,6 +165,16 @@ namespace OrbitRender.Renderer
                 Rotation = camera.transform.rotation
             });
         }
+
+        private void ConfigureCaptureCanvas(Canvas canvas)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = gameCamera.camobj;
+            canvas.planeDistance = Mathf.Max(gameCamera.camobj.nearClipPlane + 0.01f, 1f);
+            gameCamera.camobj.cullingMask |= 1 << canvas.gameObject.layer;
+            canvas.enabled = true;
+        }
+
         public void Bind()
         {
             if (gameCamera.Overlaycam != null && gameCamera.Overlaycam.gameObject.activeSelf)
@@ -156,7 +182,11 @@ namespace OrbitRender.Renderer
             if (gameCamera.quad != null && gameCamera.quad.activeSelf)
                 gameCamera.quad.SetActive(false);
             foreach (var state in canvases)
-                if (state.Canvas != null && state.Canvas.enabled) state.Canvas.enabled = false;
+            {
+                if (state.Canvas == null) continue;
+                if (state.Capture) ConfigureCaptureCanvas(state.Canvas);
+                else if (state.Canvas.enabled) state.Canvas.enabled = false;
+            }
             foreach (var state in cameras)
             {
                 if (state.Camera == null) throw new InvalidOperationException("A render camera was destroyed.");
@@ -255,6 +285,9 @@ namespace OrbitRender.Renderer
                 gameCamera.positionState = originalPositionState;
             }
             foreach (var state in canvases) if (state.Canvas != null) {
+                state.Canvas.renderMode = state.RenderMode;
+                state.Canvas.worldCamera = state.WorldCamera;
+                state.Canvas.planeDistance = state.PlaneDistance;
                 state.Canvas.enabled = state.Enabled;
             }
             if (gameCamera != null) {

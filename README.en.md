@@ -44,6 +44,10 @@ On startup, the mod checks GitHub's latest stable release. Drafts and pre-releas
 | End delay | 2 seconds | Delay after the later of music or final tile |
 | Capture audio | On | Capture game audio |
 | BGA mode | Off | Render without tiles, planets, or hit sounds |
+| Show planet rings | On | Include planet orbit rings |
+| Show song title | On | Include the level's default title text |
+| Show countdown | On | Include Get Ready, countdown numbers, and Go |
+| Show result text | On | Include only the completion/Pure Perfect message; judgment details stay hidden |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
 | Video codec | H264 | H264 / H265 / VP9 / AV1 |

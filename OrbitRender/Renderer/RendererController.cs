@@ -81,7 +81,13 @@ namespace OrbitRender.Renderer
         private string audioPath, muxPath;
         private GameAudioCapture audio;
         private BgaRenderState bga;
+        private PlanetRingRenderState planetRings;
+        private DefaultTextRenderState defaultText;
         private bool bgaModeForRun;
+        private bool showPlanetRingsForRun;
+        private bool showSongTitleForRun;
+        private bool showCountdownForRun;
+        private bool showResultTextForRun;
         private double scheduledMusicStartDsp;
         private double scheduledMusicLengthSeconds;
         private float toastUntil;
@@ -162,6 +168,14 @@ namespace OrbitRender.Renderer
             var settings = Main.Settings ?? new RendererSettings();
             var rpcOptions = activeRpcJob != null ? activeRpcJob.Options : null;
             bgaModeForRun = requestOptions?.BgaMode ?? rpcOptions?.BgaMode ?? settings.BgaMode;
+            showPlanetRingsForRun = requestOptions?.ShowPlanetRings ?? rpcOptions?.ShowPlanetRings
+                ?? settings.ShowPlanetRings;
+            showSongTitleForRun = requestOptions?.ShowSongTitle ?? rpcOptions?.ShowSongTitle
+                ?? settings.ShowSongTitle;
+            showCountdownForRun = requestOptions?.ShowCountdown ?? rpcOptions?.ShowCountdown
+                ?? settings.ShowCountdown;
+            showResultTextForRun = requestOptions?.ShowResultText ?? rpcOptions?.ShowResultText
+                ?? settings.ShowResultText;
             profile = settings.ResolveProfile(
                 requestOptions?.Preset ?? rpcOptions?.Preset,
                 requestOptions?.Width ?? rpcOptions?.Width,
@@ -436,8 +450,15 @@ namespace OrbitRender.Renderer
             ADOBase.conductor.dspTime = Clock.DspTime;
             ADOBase.conductor.songposition_minusi = Clock.SongPosition(ADOBase.conductor.dspTimeSong,
                 ADOBase.conductor.song.pitch, 0.0, scrConductor.calibration_i);
-            capture = new FrameCapture(encoder, profile.Width, profile.Height);
             PrepareRenderCamera();
+            defaultText = DefaultTextRenderState.Capture(showSongTitleForRun,
+                showCountdownForRun, showResultTextForRun);
+            capture = new FrameCapture(encoder, profile.Width, profile.Height, defaultText.CaptureCanvas);
+            if (!showPlanetRingsForRun)
+            {
+                planetRings = PlanetRingRenderState.Capture();
+                Main.Entry.Logger.Log("Planet ring visibility disabled for this render.");
+            }
             if (bgaModeForRun)
             {
                 bga = BgaRenderState.Capture();
@@ -771,7 +792,7 @@ namespace OrbitRender.Renderer
         private void LateUpdate()
         {
             if (State != RenderState.Rendering) return;
-            try { bga?.Apply(); FlashLayerPatch.Apply(); ApplyFramePacing(); capture.Bind(); }
+            try { bga?.Apply(); planetRings?.Apply(); defaultText?.Apply(); FlashLayerPatch.Apply(); ApplyFramePacing(); capture.Bind(); }
             catch (Exception ex) { Fail(ex); StopAndClean(); }
         }
         private void Update()
@@ -1200,7 +1221,9 @@ namespace OrbitRender.Renderer
             TryCleanup(() => capture?.Dispose()); capture = null;
             TryCleanup(() => encoder?.Dispose()); encoder = null;
             TryCleanup(() => audio?.Dispose()); audio = null;
+            TryCleanup(() => planetRings?.Dispose()); planetRings = null;
             TryCleanup(() => bga?.Dispose()); bga = null;
+            TryCleanup(() => defaultText?.Dispose()); defaultText = null;
             TryCleanup(RestoreRenderPerformance);
             if (restore != null)
             {

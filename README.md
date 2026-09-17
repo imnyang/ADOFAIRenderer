@@ -50,6 +50,10 @@ Windows, macOS, Linux에서 실행할 수 있도록 플랫폼별 ADOFAI/Unity Mo
 | End delay | 2초 | 음악 또는 마지막 타일 이후 대기 |
 | Capture audio | 켜짐 | 게임 음악/오디오 캡처 |
 | BGA mode | 꺼짐 | 타일, 공, 힛사운드 없이 렌더 |
+| Show planet rings | 켜짐 | 행성 궤도 링 포함 |
+| Show song title | 켜짐 | 기본 곡 제목 텍스트 포함 |
+| Show countdown | 켜짐 | 준비, 카운트다운 숫자, 시작 텍스트 포함 |
+| Show result text | 켜짐 | 완료/Pure Perfect 문구만 포함 (세부 판정 결과는 숨김) |
 | Encoding speed | Quality | Maximum / Balanced / Quality |
 | Video encoder | Auto | Auto / NvidiaNvenc / IntelQsv / AmdAmf / Software |
 | Video codec | H264 | H264 / H265 / VP9 / AV1 |

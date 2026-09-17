@@ -91,6 +91,18 @@ namespace OrbitRender
         [Draw("BGA mode (hide tiles, planets & hit sounds)", DrawType.Toggle)]
         public bool BgaMode = false;
 
+        [Draw("Show planet rings", DrawType.Toggle)]
+        public bool ShowPlanetRings = true;
+
+        [Draw("Show song title", DrawType.Toggle)]
+        public bool ShowSongTitle = true;
+
+        [Draw("Show countdown", DrawType.Toggle)]
+        public bool ShowCountdown = true;
+
+        [Draw("Show result text (hit judgments stay hidden)", DrawType.Toggle)]
+        public bool ShowResultText = true;
+
         [Draw("Encoding speed", DrawType.PopupList)]
         public EncoderSpeed Encoding = EncoderSpeed.Quality;
 
