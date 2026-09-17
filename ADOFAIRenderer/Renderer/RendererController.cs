@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
+using ADOFAIRenderer.Patches;
 
 namespace ADOFAIRenderer.Renderer
 {
@@ -516,7 +517,7 @@ namespace ADOFAIRenderer.Renderer
         private void LateUpdate()
         {
             if (State != RenderState.Rendering) return;
-            try { bga?.Apply(); ApplyFramePacing(); capture.Bind(); }
+            try { bga?.Apply(); FlashLayerPatch.Apply(); ApplyFramePacing(); capture.Bind(); }
             catch (Exception ex) { Fail(ex); StopAndClean(); }
         }
         private void Update()
@@ -867,6 +868,7 @@ namespace ADOFAIRenderer.Renderer
             // Clear patch ownership before calling any normal game reset methods.
             var restore = saved;
             saved = null;
+            FlashLayerPatch.Restore();
             renderTimer.Stop();
             TryCleanup(() => capture?.Dispose()); capture = null;
             TryCleanup(() => encoder?.Dispose()); encoder = null;
