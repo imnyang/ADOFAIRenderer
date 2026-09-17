@@ -470,41 +470,15 @@ namespace ADOFAIRenderer.Renderer
         {
             var camera = scrCamera.instance;
             if (camera == null) return;
-
-            var controller = ADOBase.controller;
-            var player = controller != null ? controller.playerOne : null;
-            try
-            {
-                // This is the same camera path used by normal gameplay. Passing
-                // zero for zoom preserves the camera's current gameplay zoom;
-                // scrCamera.DefaultCameraOrthoSize is the base orthographic
-                // size, not the zoom multiplier expected by this method.
-                if (player != null)
-                    controller.MoveCameraToPlayer(0f, DG.Tweening.Ease.Linear, 0f);
-            }
-            catch (Exception ex)
-            {
-                Main.Entry.Logger.Log("Gameplay camera refocus fallback: " + ex.Message);
-            }
-
-            try
-            {
-                if (player != null) camera.Refocus(player.transform);
-                else if (level != null && level.levelMaker != null && editor != null && editor.floors != null && editor.floors.Count > 0)
-                    camera.Refocus(editor.floors[0].transform);
-            }
-            catch (Exception ex)
-            {
-                Main.Entry.Logger.Log("Camera position refocus unavailable: " + ex.Message);
-            }
-
-            // Leave zoomSize and each camera's orthographicSize untouched. The
-            // game has already applied the normal gameplay framing during the
-            // preparation frame, and scrCamera.UpdateSize owns these values.
+            // Do not call MoveCameraToPlayer or Refocus here. Those methods
+            // overwrite the camera state/tweens created by the level's Move
+            // Camera events. The game has already applied its normal camera
+            // update during the preparation frames; FrameCapture only redirects
+            // the existing cameras to the render target.
             var orthoSize = camera.camobj != null && camera.camobj.orthographic
                 ? camera.camobj.orthographicSize : float.NaN;
             Main.Entry.Logger.Log(string.Format("Prepared render camera: zoom={0:F3}, ortho={1:F3}, player={2}",
-                camera.zoomSize, orthoSize, player != null));
+                camera.zoomSize, orthoSize, ADOBase.controller != null && ADOBase.controller.playerOne != null));
         }
         private void ValidateLoadedLevel()
         {
