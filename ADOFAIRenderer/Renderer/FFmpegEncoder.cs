@@ -226,7 +226,10 @@ namespace ADOFAIRenderer.Renderer
                 + Guid.NewGuid().ToString("N") + extension);
             try
             {
-                using (var encoder = new FFmpegEncoder(executable, output, 128, 128, 30,
+                // Keep the probe at the renderer's minimum profile size. Some
+                // hardware encoders, including NVENC on supported drivers,
+                // reject tiny 128x128 surfaces before testing any real frame.
+                using (var encoder = new FFmpegEncoder(executable, output, 320, 180, 30,
                     Math.Max(1, bitrateMbps), preset, legacyCrf, false, codec, pixelFormat))
                 {
                     var frame = encoder.Rent();
