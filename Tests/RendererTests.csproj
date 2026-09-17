@@ -10,6 +10,7 @@
   <Reference Include="mscorlib"><Private>false</Private></Reference>
   <Reference Include="System"><Private>false</Private></Reference><Reference Include="System.Core"><Private>false</Private></Reference>
   <Compile Include="Program.cs"/>
+  <Compile Include="..\ADOFAIRenderer\VideoCodec.cs" Link="VideoCodec.cs"/>
   <Compile Include="..\ADOFAIRenderer\Renderer\RenderClock.cs" Link="RenderClock.cs"/>
   <Compile Include="..\ADOFAIRenderer\Renderer\FFmpegEncoder.cs" Link="FFmpegEncoder.cs"/>
  </ItemGroup>

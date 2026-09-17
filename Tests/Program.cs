@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ADOFAIRenderer;
 using ADOFAIRenderer.Renderer;
 
 internal static class Program
@@ -25,6 +26,12 @@ internal static class Program
             bool anchorRejected = false;
             try { anchored.AnchorDsp(0); } catch (InvalidOperationException) { anchorRejected = true; }
             Assert(anchorRejected, "DSP clock was allowed to reanchor during rendering.");
+            Assert(VideoCodecCatalog.Get(VideoCodec.H264).ResolveEncoder(VideoEncoder.IntelQsv, false, false, true) == "h264_qsv", "Intel QSV mapping failed.");
+            Assert(VideoCodecCatalog.Get(VideoCodec.H265).ResolveEncoder(VideoEncoder.AmdAmf, true, false, false) == "hevc_amf", "AMD AMF mapping failed.");
+            Assert(VideoCodecCatalog.Get(VideoCodec.AV1).ResolveEncoder(VideoEncoder.NvidiaNvenc, false, true, false) == "av1_nvenc", "NVIDIA NVENC mapping failed.");
+            Assert(VideoCodecCatalog.Get(VideoCodec.VP9).ResolveEncoder(VideoEncoder.IntelQsv, false, true, false) == "libvpx-vp9", "VP9 software fallback failed.");
+            Assert(FFmpegEncoder.TryValidateVideo(args[0], 2, "ultrafast", "libx265", "yuv420p10le", ".mp4", false, out var preflightError),
+                "10-bit encoder preflight failed: " + preflightError);
             var fast = Path.Combine(args[1], "fast.mp4");
             var slow = Path.Combine(args[1], "slow.mp4");
             Encode(args[0], fast, false);
@@ -66,7 +73,8 @@ internal static class Program
             var metadata = Probe(ResolveProbe(args[0]),
                 "-v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels,duration -of default=noprint_wrappers=1 \"" + muxed + "\"");
             Assert(metadata.Contains("codec_name=aac") && metadata.Contains("sample_rate=48000") && metadata.Contains("channels=2") && metadata.Contains("duration=1.000000"), "Muxed audio format/duration mismatch.");
-            Console.WriteLine("PASS: four-hour clock, DSP anchoring, pitch/offset, 1080p60/60 frames, frame order, identical fast/slow video, failure, cancellation, AAC mux and matching A/V duration.");
+            TestVideoCodecs(args[0], args[1]);
+            Console.WriteLine("PASS: four-hour clock, DSP anchoring, pitch/offset, 1080p60/60 frames, frame order, identical fast/slow video, failure, cancellation, AAC/Opus mux and H.264/H.265/VP9/AV1 codec support.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -87,6 +95,65 @@ internal static class Program
             }
             encoder.Finish(60);
         }
+    }
+
+    private static void TestVideoCodecs(string ffmpeg, string directory)
+    {
+        var codecs = new[] {
+            new CodecCase("libx264", ".mp4", "h264"),
+            new CodecCase("libx265", ".mp4", "hevc"),
+            new CodecCase("libvpx-vp9", ".webm", "vp9"),
+            new CodecCase("libsvtav1", ".mp4", "av1")
+        };
+        foreach (var codec in codecs)
+        {
+            var output = Path.Combine(directory, "codec-" + codec.Name.Replace("-", "") + codec.Extension);
+            using (var encoder = new FFmpegEncoder(ffmpeg, output, 160, 90, 30, 2, "ultrafast", false, codec.Name))
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    var frame = encoder.Rent();
+                    frame.Index = i;
+                    for (int j = 0; j < frame.Bytes.Length; j += 4)
+                    {
+                        frame.Bytes[j] = (byte)(i * 24);
+                        frame.Bytes[j + 1] = (byte)((j / (160 * 4)) * 40);
+                        frame.Bytes[j + 2] = (byte)(255 - i * 24);
+                        frame.Bytes[j + 3] = 255;
+                    }
+                    encoder.Submit(frame);
+                }
+                encoder.Finish(8);
+            }
+
+            var metadata = Probe(ResolveProbe(ffmpeg),
+                "-v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1 \"" + output + "\"");
+            Assert(metadata.Contains("codec_name=" + codec.ProbeName), "Wrong codec for " + codec.Name + ".");
+            Assert(Path.GetExtension(output).Equals(codec.Extension, StringComparison.OrdinalIgnoreCase), "Wrong container for " + codec.Name + ".");
+        }
+
+        var vp9 = Path.Combine(directory, "codec-libvpxvp9.webm");
+        var tone = Path.Combine(directory, "codec-tone.wav");
+        var muxed = Path.Combine(directory, "codec-vp9-audio.webm");
+        Probe(ffmpeg, "-v error -f lavfi -i sine=frequency=440:sample_rate=48000:duration=1 -ac 2 -c:a pcm_f32le \"" + tone + "\"");
+        FFmpegEncoder.MuxAudio(ffmpeg, vp9, tone, muxed);
+        var audio = Probe(ResolveProbe(ffmpeg),
+            "-v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1 \"" + muxed + "\"");
+        Assert(audio.Contains("codec_name=opus"), "VP9 audio was not muxed as Opus.");
+    }
+
+    private sealed class CodecCase
+    {
+        internal CodecCase(string name, string extension, string probeName)
+        {
+            Name = name;
+            Extension = extension;
+            ProbeName = probeName;
+        }
+
+        internal string Name { get; }
+        internal string Extension { get; }
+        internal string ProbeName { get; }
     }
     private static string Probe(string ffmpeg, string arguments)
     {
