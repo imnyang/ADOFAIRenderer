@@ -167,6 +167,22 @@ namespace ADOFAIRenderer.Renderer
                 {
                     result.Pass("Game audio output is available: " + AudioSettings.outputSampleRate
                         + " Hz, " + AudioSettings.speakerMode + ".");
+                    var audioConfiguration = AudioSettings.GetConfiguration();
+                    result.Info("Unity DSP buffer: " + audioConfiguration.dspBufferSize
+                        + " samples; real voices=" + audioConfiguration.numRealVoices
+                        + ", virtual voices=" + audioConfiguration.numVirtualVoices + ".");
+                    if (audioConfiguration.dspBufferSize >= 1024)
+                        result.Warn("The renderer will temporarily use a 512-sample DSP buffer during audio capture for macOS Unity compatibility.");
+                    var listeners = UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+                    var activeListener = listeners.FirstOrDefault(listener => listener != null && listener.enabled
+                        && listener.gameObject != null && listener.gameObject.activeInHierarchy);
+                    if (activeListener == null)
+                        result.Warn("No active AudioListener was found; the audio fallback cannot capture the game mix.");
+                    else if (activeListener.gameObject.GetComponents<AudioSource>().Length > 0
+                        || activeListener.gameObject.GetComponents<AudioListener>().Length > 1)
+                        result.Pass("AudioListener master-output fallback is available; the existing mixed AudioSource/AudioListener object will be left untouched.");
+                    else
+                        result.Pass("AudioListener fallback is available if Unity AudioRenderer returns no samples.");
                     switch (AudioSettings.speakerMode)
                     {
                         case AudioSpeakerMode.Mono:

@@ -81,6 +81,8 @@ namespace ADOFAIRenderer.Renderer
         private double scheduledMusicLengthSeconds;
         private float toastUntil;
         private bool captureAudioForRun;
+        private bool audioRealtimePacing;
+        private double audioPacingOrigin;
         private bool openOutputFolderForRun;
         private RenderProfile profile;
         private float escapeHeldAt = -1f;
@@ -129,6 +131,8 @@ namespace ADOFAIRenderer.Renderer
             captureAudioForRun = activeRpcJob != null
                 ? activeRpcJob.CaptureAudio
                 : Main.Settings == null || Main.Settings.CaptureAudio;
+            audioRealtimePacing = false;
+            audioPacingOrigin = 0.0;
             openOutputFolderForRun = settings.OpenOutputFolder;
             activeRpcJob?.SetState(RpcJobState.Preparing);
             ShowToast(Message, 4f);
@@ -211,6 +215,7 @@ namespace ADOFAIRenderer.Renderer
             audioPath = Path.ChangeExtension(OutputPath, ".partial.wav");
             muxPath = Path.ChangeExtension(OutputPath, ".mux.mp4");
             saved = new SavedState();
+            PrepareAudioConfiguration();
             MaximizeRenderPerformance();
             FFmpegPath = ResolveFfmpegExecutable(settings);
             encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
@@ -288,6 +293,7 @@ namespace ADOFAIRenderer.Renderer
             // Every output frame follows one complete game Update/LateUpdate/render.
             while (true)
             {
+                yield return WaitForAudioFrame();
                 var gameFrameStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 yield return null;
                 yield return EndOfFrame;
@@ -300,7 +306,12 @@ namespace ADOFAIRenderer.Renderer
                 if (captureAudioForRun)
                 {
                     if (audio == null) throw new InvalidOperationException("The game did not initialize game audio before frame zero.");
-                    audio.CaptureFrame();
+                    audio.CaptureFrame(Clock.FrameIndex, Clock.Fps);
+                    if (audio.NeedsRealtimePacing && !audioRealtimePacing)
+                    {
+                        audioRealtimePacing = true;
+                        Main.Entry.Logger.Log("Unity AudioRenderer returned no samples; pacing the render to realtime for the AudioListener fallback.");
+                    }
                 }
                 CapturedFrames++;
                 // Throttle presentation work by wall time. At high offline
@@ -432,6 +443,7 @@ namespace ADOFAIRenderer.Renderer
                 if (source == null || source.clip == null) continue;
                 source.Stop(); source.time = 0; source.PlayScheduled(songStart);
             }
+            audioPacingOrigin = Time.realtimeSinceStartupAsDouble;
             conductor.PlayHitTimes();
             if (audio != null)
                 Main.Entry.Logger.Log("Game audio started: " + audio.SampleRate + " Hz, " + audio.Channels + " channels.");
@@ -589,6 +601,33 @@ namespace ADOFAIRenderer.Renderer
             catch (Exception ex)
             {
                 Main.Entry.Logger.Log("Could not raise renderer process priority: " + ex.Message);
+            }
+        }
+
+        private void PrepareAudioConfiguration()
+        {
+            if (!captureAudioForRun) return;
+            try
+            {
+                var configuration = AudioSettings.GetConfiguration();
+                Main.Entry.Logger.Log("Unity audio configuration: " + configuration.sampleRate
+                    + " Hz, DSP buffer=" + configuration.dspBufferSize + " samples, real voices="
+                    + configuration.numRealVoices + ", virtual voices=" + configuration.numVirtualVoices + ".");
+                if (configuration.dspBufferSize < 1024) return;
+
+                // Unity 6 macOS builds used by ADOFAI can leave the mixer and
+                // AudioRenderer silent with large DSP blocks. 512 is a valid,
+                // stable desktop setting and is enough for the renderer's
+                // realtime fallback. SavedState restores the user's setting.
+                configuration.dspBufferSize = 512;
+                var reset = AudioSettings.Reset(configuration);
+                var actual = AudioSettings.GetConfiguration();
+                Main.Entry.Logger.Log("Renderer audio DSP buffer request: 512 samples, reset=" + reset
+                    + ", actual=" + actual.dspBufferSize + ".");
+            }
+            catch (System.Exception ex)
+            {
+                Main.Entry.Logger.Log("Could not normalize the Unity audio DSP buffer: " + ex.Message);
             }
         }
 
@@ -848,6 +887,14 @@ namespace ADOFAIRenderer.Renderer
             if (UnityEngine.Rendering.OnDemandRendering.renderFrameInterval != 1)
                 UnityEngine.Rendering.OnDemandRendering.renderFrameInterval = 1;
         }
+
+        private IEnumerator WaitForAudioFrame()
+        {
+            if (!captureAudioForRun || !audioRealtimePacing || audioPacingOrigin <= 0.0) yield break;
+            var target = audioPacingOrigin + Clock.Time;
+            while (!cancellation && Time.realtimeSinceStartupAsDouble + 0.002 < target)
+                yield return null;
+        }
         private void Fail(Exception ex)
         {
             State = RenderState.Failed;
@@ -930,6 +977,7 @@ namespace ADOFAIRenderer.Renderer
             private readonly bool wasPaused = ADOBase.controller.paused, controllerEnabled = ADOBase.controller.enabled;
             private readonly SkipIntroBehavior intro = Persistence.skipIntroBehavior;
             private readonly int[] selection = ADOBase.editor != null ? ADOBase.editor.selectedFloors.Select(f => f.seqID).ToArray() : new int[0];
+            private readonly AudioConfiguration audioConfiguration = AudioSettings.GetConfiguration();
             public void Restore()
             {
                 RestoreTiming();
@@ -956,6 +1004,13 @@ namespace ADOFAIRenderer.Renderer
                 Application.targetFrameRate = targetRate; QualitySettings.vSyncCount = vsync;
                 Application.runInBackground = background;
                 AudioListener.volume = volume; AudioListener.pause = pauseAudio;
+                var currentAudio = AudioSettings.GetConfiguration();
+                if (currentAudio.sampleRate != audioConfiguration.sampleRate
+                    || currentAudio.dspBufferSize != audioConfiguration.dspBufferSize
+                    || currentAudio.numRealVoices != audioConfiguration.numRealVoices
+                    || currentAudio.numVirtualVoices != audioConfiguration.numVirtualVoices
+                    || currentAudio.speakerMode != audioConfiguration.speakerMode)
+                    AudioSettings.Reset(audioConfiguration);
                 RDC.auto = auto; GCS.checkpointNum = checkpoint; Persistence.skipIntroBehavior = intro;
                 RDC.noHud = noHud; RDC.noAutoHud = noAutoHud;
                 if (ADOBase.controller != null) ADOBase.controller.noFail = noFail;
