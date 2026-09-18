@@ -36,6 +36,10 @@ namespace OrbitRender
         private static int localizedBitrateValue = int.MinValue;
         private static float localizedEndDelayValue = float.NaN;
         private static bool diagnosticsHaveRun;
+        private static bool renderOptionsExpanded = true;
+        private static bool visibleComponentsExpanded = true;
+        private static bool encodingExpanded;
+        private static bool filesExpanded;
 
         public static bool Load(UnityModManager.ModEntry entry)
         {
@@ -78,13 +82,7 @@ namespace OrbitRender
                             "Click Run diagnostics to check FFmpeg, the output folder, the encoder, and game audio.",
                             "진단 실행을 눌러 FFmpeg, 출력 폴더, 인코더 및 게임 오디오를 확인하세요.");
                     }
-                    if (Localization.IsKorean)
-                        DrawLocalizedSettings();
-                    else
-                        UnityModManager.UI.DrawFields(ref Settings, mod, DrawFieldMask.Any, Settings.OnChange);
-                    DrawPathSettings();
-                    DrawFfmpegInstallControls();
-                    DrawDiagnostics();
+                    DrawSettings();
                 };
                 entry.OnUpdate = (mod, deltaTime) => UpdateManager.PumpMainThread();
                 entry.OnSaveGUI = mod => Settings?.Save(mod);
@@ -171,6 +169,126 @@ namespace OrbitRender
             }
         }
 
+        private static void DrawSettings()
+        {
+            GUILayout.Label(Localization.Text(
+                "Configure the defaults used when exporting a video. Per-export settings can be changed from the Export Video window.",
+                "비디오 내보내기에 사용할 기본값입니다. 개별 내보내기 설정은 비디오 내보내기 창에서 바꿀 수 있습니다."));
+            GUILayout.Space(4f);
+
+            DrawRenderSettings();
+
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Render options", "렌더 옵션"),
+                ref renderOptionsExpanded))
+            {
+                DrawRenderOptions();
+            }
+
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Visible components", "표시할 구성 요소"),
+                ref visibleComponentsExpanded))
+            {
+                DrawVisibleComponents();
+            }
+
+            GUILayout.Space(6f);
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Encoding", "인코딩"),
+                ref encodingExpanded))
+            {
+                DrawEncodingSettings();
+            }
+
+            GUILayout.Space(6f);
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Files & troubleshooting", "파일 및 문제 해결"),
+                ref filesExpanded))
+            {
+                DrawPathSettings();
+                DrawFfmpegInstallControls();
+                DrawDiagnostics();
+                GUILayout.Space(4f);
+                if (GUILayout.Button(Localization.Text("Reset render settings to defaults", "렌더링 설정을 기본값으로 복원")))
+                {
+                    Settings.ResetToDefaults();
+                    Settings.OnChange();
+                    ResetLocalizedFieldState();
+                }
+            }
+        }
+
+        private static void DrawRenderSettings()
+        {
+            GUILayout.Label(Localization.Text("Preset", "프리셋"));
+            var previousPreset = Settings.Preset;
+            Settings.Preset = SettingsUi.DrawPreset(Settings.Preset);
+            if (Settings.Preset != previousPreset)
+            {
+                Settings.OnChange();
+                ResetLocalizedFieldState();
+            }
+
+            if (Settings.Preset == RendererPreset.Custom)
+            {
+                GUILayout.BeginHorizontal();
+                Settings.Width = DrawLocalizedIntField(
+                    Localization.Text("Width", "너비"), Settings.Width,
+                    ref localizedWidthText, ref localizedWidthValue, 90f);
+                Settings.Height = DrawLocalizedIntField(
+                    Localization.Text("Height", "높이"), Settings.Height,
+                    ref localizedHeightText, ref localizedHeightValue, 90f);
+                Settings.Fps = DrawLocalizedIntField(
+                    "FPS", Settings.Fps,
+                    ref localizedFpsText, ref localizedFpsValue, 80f);
+                Settings.BitrateMbps = DrawLocalizedIntField(
+                    Localization.Text("Bitrate", "비트레이트"), Settings.BitrateMbps,
+                    ref localizedBitrateText, ref localizedBitrateValue, 80f);
+                GUILayout.Label("Mbps", GUILayout.Width(44f));
+                GUILayout.EndHorizontal();
+            }
+            else
+            {
+                var profile = Settings.ResolveProfile();
+                GUILayout.Label(Localization.Format(
+                    "Preset output: {0} × {1} @ {2} FPS, {3} Mbps",
+                    "프리셋 출력: {0} × {1} @ {2} FPS, {3} Mbps",
+                    profile.Width, profile.Height, profile.Fps, profile.BitrateMbps));
+            }
+        }
+
+        private static void DrawRenderOptions()
+        {
+            Settings.EndDelaySeconds = DrawLocalizedFloatField(
+                Localization.Text("End delay (seconds)", "종료 지연(초)"), Settings.EndDelaySeconds,
+                ref localizedEndDelayText, ref localizedEndDelayValue, 90f);
+            Settings.CaptureAudio = DrawLocalizedToggle(
+                Localization.Text("Capture audio", "오디오 캡처"), Settings.CaptureAudio);
+            Settings.BgaMode = DrawLocalizedToggle(
+                Localization.Text("BGA mode (hide tiles, planets & hit sounds)",
+                    "BGA 모드 (타일, 행성 및 타격음 숨기기)"), Settings.BgaMode);
+            Settings.OpenOutputFolder = DrawLocalizedToggle(
+                Localization.Text("Open output folder after render", "렌더 후 출력 폴더 열기"),
+                Settings.OpenOutputFolder);
+        }
+
+        private static void DrawVisibleComponents()
+        {
+            Settings.ShowPlanetRings = DrawLocalizedToggle(
+                Localization.Text("Show planet rings", "행성 고리 표시"), Settings.ShowPlanetRings);
+            Settings.ShowSongTitle = DrawLocalizedToggle(
+                Localization.Text("Show song title", "곡 제목 표시"), Settings.ShowSongTitle);
+            Settings.ShowCountdown = DrawLocalizedToggle(
+                Localization.Text("Show countdown", "카운트다운 표시"), Settings.ShowCountdown);
+            Settings.ShowResultText = DrawLocalizedToggle(
+                Localization.Text("Show result text (hit judgments stay hidden)",
+                    "결과 텍스트 표시 (판정은 숨김)"), Settings.ShowResultText);
+        }
+
+        private static void DrawEncodingSettings()
+        {
+            Settings.Encoding = SettingsUi.DrawEncoding(Settings.Encoding);
+            Settings.Encoder = SettingsUi.DrawEncoder(Settings.Encoder);
+            Settings.Codec = SettingsUi.DrawCodec(Settings.Codec);
+            Settings.BitDepth = SettingsUi.DrawBitDepth(Settings.BitDepth);
+        }
+
         private static void DrawPathSettings()
         {
             DrawPathField(
@@ -184,68 +302,18 @@ namespace OrbitRender
                 () => FileDialogService.PickFile(GetFfmpegDialogDirectory()));
         }
 
-        private static void DrawLocalizedSettings()
+        private static void ResetLocalizedFieldState()
         {
-            GUILayout.Label("렌더러 설정");
-            var previousPreset = Settings.Preset;
-            Settings.Preset = (RendererPreset)GUILayout.Toolbar((int)Settings.Preset, new[] {
-                "사용자 지정", "미리보기", "FullHD", "QHD", "UHD 4K"
-            });
-            if (Settings.Preset != previousPreset) Settings.OnChange();
-            if (Settings.Preset == RendererPreset.Custom)
-            {
-                Settings.Width = DrawLocalizedIntField("너비", Settings.Width,
-                    ref localizedWidthText, ref localizedWidthValue);
-                Settings.Height = DrawLocalizedIntField("높이", Settings.Height,
-                    ref localizedHeightText, ref localizedHeightValue);
-                Settings.Fps = DrawLocalizedIntField("목표 FPS", Settings.Fps,
-                    ref localizedFpsText, ref localizedFpsValue);
-                Settings.BitrateMbps = DrawLocalizedIntField("비디오 비트레이트(Mbps)",
-                    Settings.BitrateMbps, ref localizedBitrateText, ref localizedBitrateValue);
-            }
-
-            Settings.EndDelaySeconds = DrawLocalizedFloatField("종료 지연(초)", Settings.EndDelaySeconds,
-                ref localizedEndDelayText, ref localizedEndDelayValue);
-            Settings.CaptureAudio = DrawLocalizedToggle("오디오 캡처", Settings.CaptureAudio);
-            Settings.BgaMode = DrawLocalizedToggle("BGA 모드 (타일, 행성 및 타격음 숨기기)", Settings.BgaMode);
-            Settings.ShowPlanetRings = DrawLocalizedToggle("행성 고리 표시", Settings.ShowPlanetRings);
-            Settings.ShowSongTitle = DrawLocalizedToggle("곡 제목 표시", Settings.ShowSongTitle);
-            Settings.ShowCountdown = DrawLocalizedToggle("카운트다운 표시", Settings.ShowCountdown);
-            Settings.ShowResultText = DrawLocalizedToggle("결과 텍스트 표시 (판정은 숨김)", Settings.ShowResultText);
-
-            GUILayout.Label("인코딩 속도");
-            Settings.Encoding = (EncoderSpeed)GUILayout.Toolbar((int)Settings.Encoding,
-                new[] { "최대 속도", "균형", "품질" });
-
-            GUILayout.Label("비디오 인코더");
-            Settings.Encoder = (VideoEncoder)DrawLocalizedEncoderToolbar(Settings.Encoder);
-
-            GUILayout.Label("비디오 코덱");
-            Settings.Codec = (VideoCodec)GUILayout.Toolbar((int)Settings.Codec,
-                new[] { "H.264", "H.265", "VP9", "AV1" });
-
-            GUILayout.Label("비트 깊이");
-            Settings.BitDepth = (VideoBitDepth)GUILayout.Toolbar((int)Settings.BitDepth,
-                new[] { "8비트", "10비트" });
-            Settings.OpenOutputFolder = DrawLocalizedToggle("렌더 후 출력 폴더 열기", Settings.OpenOutputFolder);
-        }
-
-        private static int DrawLocalizedEncoderToolbar(VideoEncoder value)
-        {
-            var selected = value == VideoEncoder.Auto ? 0
-                : value == VideoEncoder.NvidiaNvenc ? 1
-                : value == VideoEncoder.IntelQsv ? 2
-                : value == VideoEncoder.AmdAmf ? 3 : 4;
-            selected = GUILayout.Toolbar(selected,
-                new[] { "자동", "NVIDIA NVENC", "Intel QSV", "AMD AMF", "소프트웨어" });
-            switch (selected)
-            {
-                case 1: return (int)VideoEncoder.NvidiaNvenc;
-                case 2: return (int)VideoEncoder.IntelQsv;
-                case 3: return (int)VideoEncoder.AmdAmf;
-                case 4: return (int)VideoEncoder.Software;
-                default: return (int)VideoEncoder.Auto;
-            }
+            localizedWidthText = null;
+            localizedHeightText = null;
+            localizedFpsText = null;
+            localizedBitrateText = null;
+            localizedEndDelayText = null;
+            localizedWidthValue = int.MinValue;
+            localizedHeightValue = int.MinValue;
+            localizedFpsValue = int.MinValue;
+            localizedBitrateValue = int.MinValue;
+            localizedEndDelayValue = float.NaN;
         }
 
         private static bool DrawLocalizedToggle(string label, bool value)
@@ -253,17 +321,15 @@ namespace OrbitRender
             return GUILayout.Toggle(value, label);
         }
 
-        private static int DrawLocalizedIntField(string label, int value, ref string text, ref int syncedValue)
+        private static int DrawLocalizedIntField(string label, int value, ref string text,
+            ref int syncedValue, float width)
         {
             if (text == null || syncedValue != value)
             {
                 text = value.ToString(CultureInfo.InvariantCulture);
                 syncedValue = value;
             }
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, GUILayout.ExpandWidth(false));
-            var edited = GUILayout.TextField(text, GUILayout.ExpandWidth(true));
-            GUILayout.EndHorizontal();
+            var edited = SettingsUi.LabeledField(label, text, width);
             if (!string.Equals(edited, text, StringComparison.Ordinal)) text = edited;
             if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
             {
@@ -274,17 +340,14 @@ namespace OrbitRender
         }
 
         private static float DrawLocalizedFloatField(string label, float value, ref string text,
-            ref float syncedValue)
+            ref float syncedValue, float width)
         {
             if (text == null || float.IsNaN(syncedValue) || Math.Abs(syncedValue - value) > 0.0001f)
             {
                 text = value.ToString("0.##", CultureInfo.InvariantCulture);
                 syncedValue = value;
             }
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, GUILayout.ExpandWidth(false));
-            var edited = GUILayout.TextField(text, GUILayout.ExpandWidth(true));
-            GUILayout.EndHorizontal();
+            var edited = SettingsUi.LabeledField(label, text, width);
             if (!string.Equals(edited, text, StringComparison.Ordinal)) text = edited;
             if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
             {
@@ -299,7 +362,7 @@ namespace OrbitRender
             if (!FfmpegInstaller.NeedsInstallation) return;
 
             GUILayout.Space(8f);
-            GUILayout.Label("FFmpeg");
+            GUILayout.Label(Localization.Text("FFmpeg setup", "FFmpeg 설정"));
             GUILayout.Label(FfmpegInstaller.StatusMessage);
             if (FfmpegInstaller.IsDownloading) return;
 
@@ -322,7 +385,6 @@ namespace OrbitRender
             if (!string.Equals(edited, current, StringComparison.Ordinal))
             {
                 value = edited;
-                if (!Localization.IsKorean) Settings.OnChange();
             }
 
             if (GUILayout.Button(Localization.Text("Browse...", "찾아보기..."), GUILayout.ExpandWidth(false)))
@@ -331,7 +393,6 @@ namespace OrbitRender
                 if (!string.IsNullOrEmpty(selected))
                 {
                     value = selected;
-                    if (!Localization.IsKorean) Settings.OnChange();
                 }
             }
             GUILayout.EndHorizontal();
@@ -370,15 +431,25 @@ namespace OrbitRender
         {
             GUILayout.Space(8f);
             GUILayout.Label(Localization.Text("Diagnostics", "진단"));
+            if (!diagnosticsHaveRun)
+            {
+                GUILayout.Label(Localization.Text(
+                    "Run this before reporting an export problem. It checks FFmpeg, the output folder, the encoder, and game audio.",
+                    "내보내기 문제를 제보하기 전에 실행하세요. FFmpeg, 출력 폴더, 인코더 및 게임 오디오를 확인합니다."));
+            }
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(Localization.Text("Run diagnostics", "진단 실행"),
                 GUILayout.ExpandWidth(false))) RunDiagnostics();
-            if (GUILayout.Button(Localization.Text("Copy report", "보고서 복사"),
-                GUILayout.ExpandWidth(false)))
+            if (diagnosticsHaveRun
+                && GUILayout.Button(Localization.Text("Copy report", "보고서 복사"),
+                    GUILayout.ExpandWidth(false)))
                 GUIUtility.systemCopyBuffer = diagnosticsSummary + Environment.NewLine + diagnosticsReport;
             GUILayout.EndHorizontal();
-            GUILayout.Label(diagnosticsSummary);
-            GUILayout.TextArea(diagnosticsReport, GUILayout.MinHeight(92f));
+            if (diagnosticsHaveRun)
+            {
+                GUILayout.Label(diagnosticsSummary);
+                GUILayout.TextArea(diagnosticsReport, GUILayout.MinHeight(92f));
+            }
         }
 
         private static void RunDiagnostics()

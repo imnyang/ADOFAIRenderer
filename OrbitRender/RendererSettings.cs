@@ -152,6 +152,29 @@ namespace OrbitRender
             EndDelaySeconds = Math.Max(0f, Math.Min(30f, EndDelaySeconds));
         }
 
+        internal void ResetToDefaults()
+        {
+            Preset = RendererPreset.FullHD;
+            Width = 1920;
+            Height = 1080;
+            Fps = 60;
+            BitrateMbps = 18;
+            EndDelaySeconds = 2f;
+            CaptureAudio = true;
+            BgaMode = false;
+            ShowPlanetRings = true;
+            ShowSongTitle = true;
+            ShowCountdown = true;
+            ShowResultText = true;
+            Encoding = EncoderSpeed.Quality;
+            Encoder = VideoEncoder.Auto;
+            Codec = VideoCodec.H264;
+            BitDepth = VideoBitDepth.Eight;
+            OutputDirectory = string.Empty;
+            OpenOutputFolder = true;
+            FfmpegExecutable = string.Empty;
+        }
+
         internal RenderProfile ResolveProfile()
         {
             return ResolveProfile(null, null, null, null, null, null, null, null);
@@ -277,6 +300,8 @@ namespace OrbitRender
 
         private void Normalize()
         {
+            if (!Enum.IsDefined(typeof(RendererPreset), Preset)) Preset = RendererPreset.FullHD;
+            if (!Enum.IsDefined(typeof(EncoderSpeed), Encoding)) Encoding = EncoderSpeed.Quality;
             Width = EvenClamp(Width, MinWidth, MaxWidth);
             Height = EvenClamp(Height, MinHeight, MaxHeight);
             Fps = Clamp(Fps, MinFps, MaxFps);

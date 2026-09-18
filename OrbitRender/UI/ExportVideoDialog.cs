@@ -70,12 +70,7 @@ namespace OrbitRender.UI
             GUILayout.Space(6f);
 
             GUILayout.Label(Localization.Text("Preset", "프리셋"));
-            var preset = (RendererPreset)GUILayout.Toolbar((int)draft.Preset,
-                new[] {
-                    Localization.Text("Custom", "사용자 지정"),
-                    Localization.Text("Preview", "미리보기"),
-                    "FullHD", "QHD", "UHD 4K"
-                });
+            var preset = SettingsUi.DrawPreset(draft.Preset);
             if (preset != draft.Preset)
             {
                 draft.Preset = preset;
@@ -85,10 +80,10 @@ namespace OrbitRender.UI
             if (draft.Preset == RendererPreset.Custom)
             {
                 GUILayout.BeginHorizontal();
-                draft.WidthText = LabeledField(Localization.Text("Width", "너비"), draft.WidthText, 90f);
-                draft.HeightText = LabeledField(Localization.Text("Height", "높이"), draft.HeightText, 90f);
-                draft.FpsText = LabeledField("FPS", draft.FpsText, 80f);
-                draft.BitrateText = LabeledField(Localization.Text("Bitrate", "비트레이트"), draft.BitrateText, 80f);
+                draft.WidthText = SettingsUi.LabeledField(Localization.Text("Width", "너비"), draft.WidthText, 90f);
+                draft.HeightText = SettingsUi.LabeledField(Localization.Text("Height", "높이"), draft.HeightText, 90f);
+                draft.FpsText = SettingsUi.LabeledField("FPS", draft.FpsText, 80f);
+                draft.BitrateText = SettingsUi.LabeledField(Localization.Text("Bitrate", "비트레이트"), draft.BitrateText, 80f);
                 GUILayout.Label("Mbps", GUILayout.Width(44f));
                 GUILayout.EndHorizontal();
             }
@@ -101,9 +96,10 @@ namespace OrbitRender.UI
             }
 
             GUILayout.Space(6f);
-            if (DrawSectionHeader(Localization.Text("Render options", "렌더 옵션"), ref renderOptionsExpanded))
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Render options", "렌더 옵션"),
+                ref renderOptionsExpanded))
             {
-                draft.EndDelayText = LabeledField(Localization.Text("End delay (seconds)", "종료 지연(초)"),
+                draft.EndDelayText = SettingsUi.LabeledField(Localization.Text("End delay (seconds)", "종료 지연(초)"),
                     draft.EndDelayText, 90f);
                 draft.CaptureAudio = GUILayout.Toggle(draft.CaptureAudio,
                     Localization.Text("Capture audio", "오디오 캡처"));
@@ -117,7 +113,7 @@ namespace OrbitRender.UI
                         "이 값을 렌더러 기본 설정으로 저장"));
             }
 
-            if (DrawSectionHeader(Localization.Text("Visible components", "표시할 구성 요소"),
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Visible components", "표시할 구성 요소"),
                 ref visibleComponentsExpanded))
             {
                 draft.ShowPlanetRings = GUILayout.Toggle(draft.ShowPlanetRings,
@@ -132,12 +128,12 @@ namespace OrbitRender.UI
             }
 
             GUILayout.Space(6f);
-            if (DrawSectionHeader(Localization.Text("Encoding", "인코딩"), ref encodingExpanded))
+            if (SettingsUi.DrawSectionHeader(Localization.Text("Encoding", "인코딩"), ref encodingExpanded))
             {
-                draft.Encoding = DrawEncoding(draft.Encoding);
-                draft.Encoder = DrawEncoder(draft.Encoder);
-                draft.Codec = DrawCodec(draft.Codec);
-                draft.BitDepth = DrawBitDepth(draft.BitDepth);
+                draft.Encoding = SettingsUi.DrawEncoding(draft.Encoding);
+                draft.Encoder = SettingsUi.DrawEncoder(draft.Encoder);
+                draft.Codec = SettingsUi.DrawCodec(draft.Codec);
+                draft.BitDepth = SettingsUi.DrawBitDepth(draft.BitDepth);
             }
 
             GUILayout.FlexibleSpace();
@@ -157,64 +153,6 @@ namespace OrbitRender.UI
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0f, 0f, 10000f, 26f));
-        }
-
-        private static string LabeledField(string label, string value, float width)
-        {
-            GUILayout.Label(label, GUILayout.ExpandWidth(false));
-            return GUILayout.TextField(value ?? string.Empty, GUILayout.Width(width));
-        }
-
-        private static bool DrawSectionHeader(string title, ref bool expanded)
-        {
-            var marker = expanded ? "▼ " : "▶ ";
-            if (GUILayout.Button(marker + title, GUI.skin.button, GUILayout.ExpandWidth(true)))
-                expanded = !expanded;
-            return expanded;
-        }
-
-        private static EncoderSpeed DrawEncoding(EncoderSpeed value)
-        {
-            GUILayout.Label(Localization.Text("Encoding speed", "인코딩 속도"));
-            return (EncoderSpeed)GUILayout.Toolbar((int)value, new[] {
-                Localization.Text("Maximum", "최대 속도"),
-                Localization.Text("Balanced", "균형"),
-                Localization.Text("Quality", "품질")
-            });
-        }
-
-        private static VideoEncoder DrawEncoder(VideoEncoder value)
-        {
-            GUILayout.Label(Localization.Text("Video encoder", "비디오 인코더"));
-            var selected = value == VideoEncoder.Auto ? 0
-                : value == VideoEncoder.NvidiaNvenc ? 1
-                : value == VideoEncoder.IntelQsv ? 2
-                : value == VideoEncoder.AmdAmf ? 3 : 4;
-            selected = GUILayout.Toolbar(selected,
-                new[] {
-                    Localization.Text("Auto", "자동"), "NVIDIA NVENC", "Intel QSV", "AMD AMF",
-                    Localization.Text("Software", "소프트웨어")
-                });
-            switch (selected)
-            {
-                case 1: return VideoEncoder.NvidiaNvenc;
-                case 2: return VideoEncoder.IntelQsv;
-                case 3: return VideoEncoder.AmdAmf;
-                case 4: return VideoEncoder.Software;
-                default: return VideoEncoder.Auto;
-            }
-        }
-
-        private static VideoCodec DrawCodec(VideoCodec value)
-        {
-            GUILayout.Label(Localization.Text("Video codec", "비디오 코덱"));
-            return (VideoCodec)GUILayout.Toolbar((int)value, new[] { "H.264", "H.265", "VP9", "AV1" });
-        }
-
-        private static VideoBitDepth DrawBitDepth(VideoBitDepth value)
-        {
-            GUILayout.Label(Localization.Text("Video bit depth", "비트 깊이"));
-            return (VideoBitDepth)GUILayout.Toolbar((int)value, new[] { "8-bit", "10-bit" });
         }
 
         private static void Confirm(RendererController renderer)
