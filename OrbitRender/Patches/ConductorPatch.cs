@@ -44,7 +44,7 @@ namespace OrbitRender.Patches
         // The synchronous autoplay path normally falls back to
         // AudioSource.time when AsyncInput is inactive. AudioSource.time is
         // driven by the real audio device, so it lags behind the deterministic
-        // render clock whenever offline generation is faster than realtime.
+        // render clock whenever accelerated generation is faster than realtime.
         // Keep angle/autoplay calculations on the same timeline as the
         // conductor and the camera events. The target tick is intentionally
         // ignored here: the renderer disables AsyncInput and owns the frame
@@ -72,7 +72,8 @@ namespace OrbitRender.Patches
     {
         // DownloadHandlerAudioClip reports only the currently buffered portion
         // when streamAudio is enabled. That is fine for normal gameplay, but
-        // Unity's offline AudioRenderer cannot advance that stream reliably:
+        // Unity's AudioRenderer cannot advance that stream reliably in this
+        // mode:
         // volume-driven tiles see silence and the exported WAV contains only a
         // short prefix. Decode external OGG/WAV audio into a complete clip for
         // deterministic renders; leave normal gameplay untouched.

@@ -17,9 +17,9 @@ namespace OrbitRender.Renderer
     {
         // Application.targetFrameRate = -1 lets Unity choose the platform's
         // default rate. On desktop that can follow the monitor refresh rate
-        // (for example, exactly 200 Hz), which unintentionally caps offline
-        // rendering even when vSync is disabled.
-        private const int OfflineTargetFrameRate = 6000;
+        // (for example, exactly 200 Hz), which unintentionally caps rendering
+        // even when vSync is disabled.
+        private const int RenderTargetFrameRate = 6000;
         private static readonly WaitForEndOfFrame EndOfFrame = new WaitForEndOfFrame();
         public static RendererController Instance { get; private set; }
         public static bool ControlsTime => Instance != null && Instance.saved != null &&
@@ -81,8 +81,8 @@ namespace OrbitRender.Renderer
         private bool cancellation;
         private string partialPath;
         private string audioPath, muxPath;
-        private UnityWebRequest offlineSongRequest;
-        private UnityWebRequest pendingOfflineSongRequest;
+        private UnityWebRequest songRequest;
+        private UnityWebRequest pendingSongRequest;
         private CalibrationPreset overriddenCalibrationPreset;
         private int overriddenInputOffset;
         private bool inputOffsetOverridden;
@@ -432,7 +432,7 @@ namespace OrbitRender.Renderer
             Time.timeScale = 1;
             DG.Tweening.DOTween.useSmoothDeltaTime = false;
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = OfflineTargetFrameRate;
+            Application.targetFrameRate = RenderTargetFrameRate;
             Application.runInBackground = true;
             // Keep the game's audio signal alive even for video-only renders.
             // ADOFAI uses the live song volume for TrackColorType.Volume, so
@@ -449,7 +449,7 @@ namespace OrbitRender.Renderer
             // Decode the complete clip before gameplay starts. Replacing or
             // waiting for audio after editor.Play lets camera tweens run before
             // output frame zero and changes their motion in the export.
-            yield return PrepareOfflineSongClip();
+            yield return PrepareSongClip();
             if (editor != null)
             {
                 editor.SelectFloor(editor.floors[0], cameraJump: false);
@@ -537,8 +537,8 @@ namespace OrbitRender.Renderer
                     }
                 }
                 CapturedFrames++;
-                // Throttle presentation work by wall time. At high offline
-                // generation rates, updating this every six output frames can
+                // Throttle presentation work by wall time. At high generation
+                // rates, updating this every six output frames can
                 // format and rebuild the IMGUI text dozens of times per second.
                 var elapsed = renderTimer.Elapsed.TotalSeconds;
                 if (elapsed >= nextProgressUpdateAt)
@@ -611,7 +611,7 @@ namespace OrbitRender.Renderer
             if (openOutputFolderForRun) OpenOutputFolder();
         }
 
-        private IEnumerator PrepareOfflineSongClip()
+        private IEnumerator PrepareSongClip()
         {
             if (level == null || level.levelData == null || string.IsNullOrEmpty(level.levelData.songFilename))
                 yield break;
@@ -633,7 +633,7 @@ namespace OrbitRender.Renderer
                 case ".aiff": audioType = AudioType.AIFF; break;
                 case ".mp3": audioType = AudioType.MPEG; break;
                 default:
-                    Main.Entry.Logger.Log("Offline song decode skipped for unsupported extension: " + extension);
+                    Main.Entry.Logger.Log("Song decode skipped for unsupported extension: " + extension);
                     yield break;
             }
 
@@ -642,25 +642,25 @@ namespace OrbitRender.Renderer
             // disposing here would make clip.length become zero before the
             // render and would also leave post-render editor playback silent.
             var request = UnityWebRequestMultimedia.GetAudioClip(new Uri(songPath).AbsoluteUri, audioType);
-            pendingOfflineSongRequest = request;
+            pendingSongRequest = request;
             var handler = request.downloadHandler as DownloadHandlerAudioClip;
             if (handler != null) handler.streamAudio = false;
             yield return request.SendWebRequest();
             if (request.result != UnityWebRequest.Result.Success)
             {
-                DisposePendingOfflineSongRequest();
+                DisposePendingSongRequest();
                 throw new InvalidOperationException("Could not decode the level song: " + request.error);
             }
 
             var clip = DownloadHandlerAudioClip.GetContent(request);
             if (clip == null || clip.length <= 0)
             {
-                DisposePendingOfflineSongRequest();
+                DisposePendingSongRequest();
                 throw new InvalidOperationException("The level song decoded to an empty AudioClip.");
             }
             if (ADOBase.conductor == null || ADOBase.conductor.song == null)
             {
-                DisposePendingOfflineSongRequest();
+                DisposePendingSongRequest();
                 throw new InvalidOperationException("ADOFAI did not provide a song source before render playback.");
             }
 
@@ -670,11 +670,11 @@ namespace OrbitRender.Renderer
             // been detached from the AudioSource. Keep the new request alive
             // after rendering so normal editor playback retains a valid,
             // non-streaming clip instead of the original zero-length stream.
-            DisposeOfflineSongRequest();
-            offlineSongRequest = request;
-            pendingOfflineSongRequest = null;
+            DisposeSongRequest();
+            songRequest = request;
+            pendingSongRequest = null;
             Main.Entry.Logger.Log(string.Format(
-                "Offline song decoded in full: {0:F2}s ({1}).", clip.length, Path.GetFileName(songPath)));
+                "Song decoded in full: {0:F2}s ({1}).", clip.length, Path.GetFileName(songPath)));
         }
 
         private void OverrideInputOffsetForRender()
@@ -707,17 +707,17 @@ namespace OrbitRender.Renderer
             Main.Entry.Logger.Log("Restored input offset after rendering: " + value + " ms.");
         }
 
-        private void DisposeOfflineSongRequest()
+        private void DisposeSongRequest()
         {
-            var request = offlineSongRequest;
-            offlineSongRequest = null;
+            var request = songRequest;
+            songRequest = null;
             request?.Dispose();
         }
 
-        private void DisposePendingOfflineSongRequest()
+        private void DisposePendingSongRequest()
         {
-            var request = pendingOfflineSongRequest;
-            pendingOfflineSongRequest = null;
+            var request = pendingSongRequest;
+            pendingSongRequest = null;
             request?.Dispose();
         }
 
@@ -1282,10 +1282,10 @@ namespace OrbitRender.Renderer
         {
             // Game settings or other mods may restore a cap after editor.Play.
             // Do not use -1 here: Unity may resolve it to the display refresh
-            // rate, making a 200 Hz monitor a hard offline-render cap.
+            // rate, making a 200 Hz monitor a hard render cap.
             if (QualitySettings.vSyncCount != 0) QualitySettings.vSyncCount = 0;
-            if (Application.targetFrameRate != OfflineTargetFrameRate)
-                Application.targetFrameRate = OfflineTargetFrameRate;
+            if (Application.targetFrameRate != RenderTargetFrameRate)
+                Application.targetFrameRate = RenderTargetFrameRate;
             if (UnityEngine.Rendering.OnDemandRendering.renderFrameInterval != 1)
                 UnityEngine.Rendering.OnDemandRendering.renderFrameInterval = 1;
         }
@@ -1366,7 +1366,7 @@ namespace OrbitRender.Renderer
                 });
                 TryCleanup(restore.Restore);
             }
-            TryCleanup(DisposePendingOfflineSongRequest);
+            TryCleanup(DisposePendingSongRequest);
             if (State != RenderState.Completed && !string.IsNullOrEmpty(partialPath))
                 TryCleanup(() => { if (File.Exists(partialPath)) File.Delete(partialPath); });
             foreach (var temporary in new[] { audioPath, muxPath })
@@ -1390,15 +1390,15 @@ namespace OrbitRender.Renderer
         private void OnDestroy()
         {
             StopAndClean();
-            TryCleanup(DisposePendingOfflineSongRequest);
-            TryCleanup(DisposeOfflineSongRequest);
+            TryCleanup(DisposePendingSongRequest);
+            TryCleanup(DisposeSongRequest);
             if (Instance == this) Instance = null;
         }
         private void OnApplicationQuit()
         {
             StopAndClean();
-            TryCleanup(DisposePendingOfflineSongRequest);
-            TryCleanup(DisposeOfflineSongRequest);
+            TryCleanup(DisposePendingSongRequest);
+            TryCleanup(DisposeSongRequest);
         }
         internal static string SanitizeName(string value)
         {

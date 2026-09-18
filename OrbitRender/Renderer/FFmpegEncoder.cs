@@ -69,8 +69,8 @@ namespace OrbitRender.Renderer
             var frameByteCount = checked(width * height * 4);
             // Readback and encoding share this pool. Keep enough frames in flight
             // to hide GPU readback and x264 latency instead of making the Unity
-            // thread wait after every few frames. Rendering is an offline job, so
-            // throughput is more important than minimizing the temporary working set.
+            // thread wait after every few frames. Rendering prioritizes throughput,
+            // so minimizing the temporary working set is less important.
             var bufferCount = (int)Math.Max(4L, Math.Min(16L, (256L * 1024 * 1024) / frameByteCount));
             free = new BlockingCollection<Frame>(bufferCount);
             work = new BlockingCollection<Frame>(bufferCount);

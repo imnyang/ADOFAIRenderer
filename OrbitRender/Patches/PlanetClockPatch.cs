@@ -7,8 +7,8 @@ using OrbitRender.Renderer;
 
 namespace OrbitRender.Patches
 {
-    // PlanetRenderer's expo pulse uses wall-clock unscaledTime. During an
-    // offline render the game can run faster than the output timeline, which
+    // PlanetRenderer's expo pulse uses wall-clock unscaledTime. During a
+    // render the game can run faster than the output timeline, which
     // makes that pulse and the planet's visual state advance at the wrong
     // speed. Keep it on the same deterministic clock as the song.
     [HarmonyPatch(typeof(PlanetRenderer), "LateUpdate")]
