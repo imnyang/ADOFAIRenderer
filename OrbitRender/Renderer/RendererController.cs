@@ -7,7 +7,6 @@ using System.Threading;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.Networking;
-using OrbitRender.Patches;
 
 namespace OrbitRender.Renderer
 {
@@ -82,6 +81,11 @@ namespace OrbitRender.Renderer
         private bool cancellation;
         private string partialPath;
         private string audioPath, muxPath;
+        private UnityWebRequest offlineSongRequest;
+        private UnityWebRequest pendingOfflineSongRequest;
+        private CalibrationPreset overriddenCalibrationPreset;
+        private int overriddenInputOffset;
+        private bool inputOffsetOverridden;
         private GameAudioCapture audio;
         private BgaRenderState bga;
         private PlanetRingRenderState planetRings;
@@ -410,6 +414,7 @@ namespace OrbitRender.Renderer
             muxPath = Path.ChangeExtension(OutputPath, ".mux" + profile.ContainerExtension);
             saved = new SavedState();
             PrepareAudioConfiguration();
+            OverrideInputOffsetForRender();
             MaximizeRenderPerformance();
             encoder = new FFmpegEncoder(FFmpegPath, partialPath, profile.Width, profile.Height,
                 profile.Fps, profile.BitrateMbps, profile.FfmpegPreset, !captureAudioForRun,
@@ -477,7 +482,7 @@ namespace OrbitRender.Renderer
             Time.timeScale = 1;
             ADOBase.conductor.dspTime = Clock.DspTime;
             ADOBase.conductor.songposition_minusi = Clock.SongPosition(ADOBase.conductor.dspTimeSong,
-                ADOBase.conductor.song.pitch, 0.0, scrConductor.calibration_i);
+                ADOBase.conductor.song.pitch, ADOBase.conductor.addoffset, 0.0);
             PrepareRenderCamera();
             defaultText = DefaultTextRenderState.Capture(showSongTitleForRun,
                 showCountdownForRun, showResultTextForRun);
@@ -632,25 +637,88 @@ namespace OrbitRender.Renderer
                     yield break;
             }
 
-            using (var request = UnityWebRequestMultimedia.GetAudioClip(new Uri(songPath).AbsoluteUri, audioType))
+            // Keep the request alive while its clip is attached. Disposing a
+            // DownloadHandlerAudioClip can invalidate the AudioClip it owns;
+            // disposing here would make clip.length become zero before the
+            // render and would also leave post-render editor playback silent.
+            var request = UnityWebRequestMultimedia.GetAudioClip(new Uri(songPath).AbsoluteUri, audioType);
+            pendingOfflineSongRequest = request;
+            var handler = request.downloadHandler as DownloadHandlerAudioClip;
+            if (handler != null) handler.streamAudio = false;
+            yield return request.SendWebRequest();
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                var handler = request.downloadHandler as DownloadHandlerAudioClip;
-                if (handler != null) handler.streamAudio = false;
-                yield return request.SendWebRequest();
-                if (request.result != UnityWebRequest.Result.Success)
-                    throw new InvalidOperationException("Could not decode the level song: " + request.error);
-
-                var clip = DownloadHandlerAudioClip.GetContent(request);
-                if (clip == null || clip.length <= 0)
-                    throw new InvalidOperationException("The level song decoded to an empty AudioClip.");
-                if (ADOBase.conductor == null || ADOBase.conductor.song == null)
-                    throw new InvalidOperationException("ADOFAI did not provide a song source before render playback.");
-
-                ADOBase.conductor.song.Stop();
-                ADOBase.conductor.song.clip = clip;
-                Main.Entry.Logger.Log(string.Format(
-                    "Offline song decoded in full: {0:F2}s ({1}).", clip.length, Path.GetFileName(songPath)));
+                DisposePendingOfflineSongRequest();
+                throw new InvalidOperationException("Could not decode the level song: " + request.error);
             }
+
+            var clip = DownloadHandlerAudioClip.GetContent(request);
+            if (clip == null || clip.length <= 0)
+            {
+                DisposePendingOfflineSongRequest();
+                throw new InvalidOperationException("The level song decoded to an empty AudioClip.");
+            }
+            if (ADOBase.conductor == null || ADOBase.conductor.song == null)
+            {
+                DisposePendingOfflineSongRequest();
+                throw new InvalidOperationException("ADOFAI did not provide a song source before render playback.");
+            }
+
+            ADOBase.conductor.song.Stop();
+            ADOBase.conductor.song.clip = clip;
+            // The old decoded request can only be released after its clip has
+            // been detached from the AudioSource. Keep the new request alive
+            // after rendering so normal editor playback retains a valid,
+            // non-streaming clip instead of the original zero-length stream.
+            DisposeOfflineSongRequest();
+            offlineSongRequest = request;
+            pendingOfflineSongRequest = null;
+            Main.Entry.Logger.Log(string.Format(
+                "Offline song decoded in full: {0:F2}s ({1}).", clip.length, Path.GetFileName(songPath)));
+        }
+
+        private void OverrideInputOffsetForRender()
+        {
+            // Some conductor setup paths cache the raw preset value before the
+            // calibration getter is queried. Temporarily zero the actual field
+            // so a render behaves exactly like starting playback with a 0 ms
+            // input offset. This is an in-memory override only and is restored
+            // by Cleanup on success, cancellation, failure, and application exit.
+            var preset = scrConductor.currentPreset;
+            if (inputOffsetOverridden) return;
+            overriddenCalibrationPreset = preset;
+            overriddenInputOffset = preset.inputOffset;
+            preset.inputOffset = 0;
+            scrConductor.currentPreset = preset;
+            inputOffsetOverridden = true;
+            Main.Entry.Logger.Log("Temporarily set input offset to 0 ms for rendering (saved "
+                + overriddenInputOffset + " ms).");
+        }
+
+        private void RestoreInputOffsetAfterRender()
+        {
+            if (!inputOffsetOverridden) return;
+            var value = overriddenInputOffset;
+            var preset = scrConductor.currentPreset;
+            preset.inputOffset = overriddenCalibrationPreset.inputOffset;
+            scrConductor.currentPreset = preset;
+            overriddenInputOffset = 0;
+            inputOffsetOverridden = false;
+            Main.Entry.Logger.Log("Restored input offset after rendering: " + value + " ms.");
+        }
+
+        private void DisposeOfflineSongRequest()
+        {
+            var request = offlineSongRequest;
+            offlineSongRequest = null;
+            request?.Dispose();
+        }
+
+        private void DisposePendingOfflineSongRequest()
+        {
+            var request = pendingOfflineSongRequest;
+            pendingOfflineSongRequest = null;
+            request?.Dispose();
         }
 
         private void OpenOutputFolder()
@@ -718,6 +786,9 @@ namespace OrbitRender.Renderer
             songStart = conductor.dspTimeSong + countdown;
             scheduledMusicStartDsp = songStart;
             scheduledMusicLengthSeconds = LongestClipLength(conductor, pitch);
+            Main.Entry.Logger.Log(string.Format(
+                "Audio schedule: start={0:F3}s, level offset={1:F3}s, countdown={2:F3}s, pitch={3:F3}.",
+                songStart - Clock.DspOrigin, conductor.addoffset, countdown, pitch));
 
             if (captureAudioForRun && audio == null)
             {
@@ -756,7 +827,7 @@ namespace OrbitRender.Renderer
             // the last tile before the termination check, even when the audio
             // clip reports only a streaming-buffer length.
             double chartEnd = conductor.dspTimeSong - Clock.DspOrigin
-                + scrConductor.calibration_i + last / pitch + finalStep + 1.0 / Clock.Fps;
+                + (conductor.addoffset + last) / pitch + finalStep + 1.0 / Clock.Fps;
             double musicEnd = scheduledMusicStartDsp - Clock.DspOrigin + scheduledMusicLengthSeconds;
             double end = Math.Max(chartEnd, musicEnd) + endDelay;
             if (double.IsNaN(end) || double.IsInfinity(end) || end <= 0)
@@ -826,7 +897,7 @@ namespace OrbitRender.Renderer
         private void LateUpdate()
         {
             if (State != RenderState.Rendering) return;
-            try { bga?.Apply(); planetRings?.Apply(); defaultText?.Apply(); FlashLayerPatch.Apply(); ApplyFramePacing(); capture.Bind(); }
+            try { bga?.Apply(); planetRings?.Apply(); defaultText?.Apply(); ApplyFramePacing(); capture.Bind(); }
             catch (Exception ex) { Fail(ex); StopAndClean(); }
         }
         private void Update()
@@ -1261,7 +1332,7 @@ namespace OrbitRender.Renderer
             // Clear patch ownership before calling any normal game reset methods.
             var restore = saved;
             saved = null;
-            FlashLayerPatch.Restore();
+            TryCleanup(RestoreInputOffsetAfterRender);
             renderTimer.Stop();
             TryCleanup(() => capture?.Dispose()); capture = null;
             TryCleanup(() => encoder?.Dispose()); encoder = null;
@@ -1275,6 +1346,10 @@ namespace OrbitRender.Renderer
                 // Reset playback with the user's autoplay setting, otherwise Play
                 // would retain renderer fast-takeoff flags in the restored session.
                 TryCleanup(restore.RestoreTiming);
+                // Keep the fully decoded song clip attached. The original
+                // external streaming clip reports length zero after Unity's
+                // audio-device reset and cannot be reused by editor playback.
+                TryCleanup(restore.RestoreAudioSources);
                 TryCleanup(() => {
                     var conductor = ADOBase.conductor;
                     if (conductor != null) {
@@ -1291,6 +1366,7 @@ namespace OrbitRender.Renderer
                 });
                 TryCleanup(restore.Restore);
             }
+            TryCleanup(DisposePendingOfflineSongRequest);
             if (State != RenderState.Completed && !string.IsNullOrEmpty(partialPath))
                 TryCleanup(() => { if (File.Exists(partialPath)) File.Delete(partialPath); });
             foreach (var temporary in new[] { audioPath, muxPath })
@@ -1311,8 +1387,19 @@ namespace OrbitRender.Renderer
                 Message = Localization.Format("Cleanup failed: {0}", "정리 작업 실패: {0}", ex.Message);
             }
         }
-        private void OnDestroy() { StopAndClean(); if (Instance == this) Instance = null; }
-        private void OnApplicationQuit() { StopAndClean(); }
+        private void OnDestroy()
+        {
+            StopAndClean();
+            TryCleanup(DisposePendingOfflineSongRequest);
+            TryCleanup(DisposeOfflineSongRequest);
+            if (Instance == this) Instance = null;
+        }
+        private void OnApplicationQuit()
+        {
+            StopAndClean();
+            TryCleanup(DisposePendingOfflineSongRequest);
+            TryCleanup(DisposeOfflineSongRequest);
+        }
         internal static string SanitizeName(string value)
         {
             var invalid = Path.GetInvalidFileNameChars();
@@ -1331,6 +1418,21 @@ namespace OrbitRender.Renderer
             private readonly SkipIntroBehavior intro = Persistence.skipIntroBehavior;
             private readonly int[] selection = ADOBase.editor != null ? ADOBase.editor.selectedFloors.Select(f => f.seqID).ToArray() : new int[0];
             private readonly AudioConfiguration audioConfiguration = AudioSettings.GetConfiguration();
+            private readonly AudioSource song = ADOBase.conductor != null ? ADOBase.conductor.song : null;
+            private readonly AudioSource song2 = ADOBase.conductor != null ? ADOBase.conductor.song2 : null;
+            private readonly AudioSource song3 = ADOBase.conductor != null ? ADOBase.conductor.song3 : null;
+            private readonly float songVolume = ADOBase.conductor != null && ADOBase.conductor.song != null
+                ? ADOBase.conductor.song.volume : 0f;
+            private readonly float song2Volume = ADOBase.conductor != null && ADOBase.conductor.song2 != null
+                ? ADOBase.conductor.song2.volume : 0f;
+            private readonly float song3Volume = ADOBase.conductor != null && ADOBase.conductor.song3 != null
+                ? ADOBase.conductor.song3.volume : 0f;
+            private readonly float songPitch = ADOBase.conductor != null && ADOBase.conductor.song != null
+                ? ADOBase.conductor.song.pitch : 1f;
+            private readonly float song2Pitch = ADOBase.conductor != null && ADOBase.conductor.song2 != null
+                ? ADOBase.conductor.song2.pitch : 1f;
+            private readonly float song3Pitch = ADOBase.conductor != null && ADOBase.conductor.song3 != null
+                ? ADOBase.conductor.song3.pitch : 1f;
             public void Restore()
             {
                 RestoreTiming();
@@ -1356,7 +1458,6 @@ namespace OrbitRender.Renderer
                 UnityEngine.Rendering.OnDemandRendering.renderFrameInterval = renderInterval;
                 Application.targetFrameRate = targetRate; QualitySettings.vSyncCount = vsync;
                 Application.runInBackground = background;
-                AudioListener.volume = volume; AudioListener.pause = pauseAudio;
                 var currentAudio = AudioSettings.GetConfiguration();
                 if (currentAudio.sampleRate != audioConfiguration.sampleRate
                     || currentAudio.dspBufferSize != audioConfiguration.dspBufferSize
@@ -1364,9 +1465,31 @@ namespace OrbitRender.Renderer
                     || currentAudio.numVirtualVoices != audioConfiguration.numVirtualVoices
                     || currentAudio.speakerMode != audioConfiguration.speakerMode)
                     AudioSettings.Reset(audioConfiguration);
+                // AudioSettings.Reset can recreate the Unity audio device, so
+                // apply the listener state after the reset rather than before
+                // it. Otherwise the editor may remain paused after rendering.
+                AudioListener.volume = volume; AudioListener.pause = pauseAudio;
                 RDC.auto = auto; GCS.checkpointNum = checkpoint; Persistence.skipIntroBehavior = intro;
                 RDC.noHud = noHud; RDC.noAutoHud = noAutoHud;
                 if (ADOBase.controller != null) ADOBase.controller.noFail = noFail;
+            }
+            public void RestoreAudioSources()
+            {
+                RestoreAudioSource(song, songVolume, songPitch);
+                RestoreAudioSource(song2, song2Volume, song2Pitch);
+                RestoreAudioSource(song3, song3Volume, song3Pitch);
+            }
+            private static void RestoreAudioSource(AudioSource source, float volume, float pitch)
+            {
+                if (source == null) return;
+                source.Stop();
+                source.volume = volume;
+                source.pitch = pitch;
+                if (source.clip != null) source.time = 0f;
+                Main.Entry.Logger.Log(string.Format(
+                    "Restored audio source: clip={0}, length={1:F2}s, volume={2:F3}, pitch={3:F3}.",
+                    source.clip != null ? source.clip.name : "<none>",
+                    source.clip != null ? source.clip.length : 0.0f, volume, pitch));
             }
         }
     }

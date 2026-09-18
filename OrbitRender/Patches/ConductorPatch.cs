@@ -61,8 +61,8 @@ namespace OrbitRender.Patches
             __result = RendererController.Instance.Clock.SongPosition(
                 __instance.dspTimeSong,
                 __instance.song.pitch,
-                0.0,
-                scrConductor.calibration_i);
+                __instance.addoffset,
+                0.0);
             return false;
         }
     }
@@ -155,10 +155,11 @@ namespace OrbitRender.Patches
         {
             if (!RendererController.ControlsTime || __instance.song == null) return;
             // Avoid the float conversion in the stock Update, retaining double
-            // precision throughout long renders. Input offset compensates live
-            // input and must not shift exported camera or decoration events.
+            // precision throughout long renders. Input calibration compensates
+            // live input and must not shift an export, but addoffset is the
+            // level-authored song offset and must remain in the chart clock.
             value = RendererController.Instance.Clock.SongPosition(__instance.dspTimeSong,
-                __instance.song.pitch, 0.0, scrConductor.calibration_i);
+                __instance.song.pitch, __instance.addoffset, 0.0);
         }
     }
 }
